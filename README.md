@@ -1,4 +1,4 @@
-# 🎲 Dobium: The World's First Logic Market
+# 🎲 Dobium: The World's First Dynamic Logic Market
 
 A modern prediction markets platform where users can trade on the outcomes of real-world events across sports, technology, finance, and more.
 
