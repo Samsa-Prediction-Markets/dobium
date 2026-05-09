@@ -3,12 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 
 export default function AuthPage() {
-  const { login, loginWithGoogle, signup, resetPassword } = useAuth();
+  const { login, loginWithGoogle, resetPassword } = useAuth();
   const navigate = useNavigate();
-  const [view, setView] = useState('login'); // login | signup | reset
+  const [view, setView] = useState('login'); // login | reset
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,15 +17,6 @@ export default function AuthPage() {
   const handleLogin = async (e) => {
     e.preventDefault(); clear(); setLoading(true);
     try { await login(email, password); navigate('/'); }
-    catch (err) { setError(err.message); }
-    finally { setLoading(false); }
-  };
-
-  const handleSignup = async (e) => {
-    e.preventDefault(); clear();
-    if (password !== confirm) { setError('Passwords do not match'); return; }
-    setLoading(true);
-    try { await signup(email, password); setInfo('Check your email to verify your account.'); }
     catch (err) { setError(err.message); }
     finally { setLoading(false); }
   };
@@ -73,55 +63,35 @@ export default function AuthPage() {
                 <label className="form-label">Password</label>
                 <input id="loginPassword" className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required />
               </div>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => { clear(); setView('reset'); }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'right',
+                  padding: '2px 0',
+                  marginTop: '-4px',
+                  marginBottom: '6px',
+                  color: '#d4af37',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Forgot password?
+              </button>
               {error && <p className="form-error">{error}</p>}
               {info && <p style={{ fontSize: 12, color: 'var(--green)' }}>{info}</p>}
               <button id="loginSubmit" className="btn btn-primary btn-full" type="submit" disabled={loading}>
                 {loading ? 'Signing in…' : 'Sign in'}
               </button>
             </form>
-            <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
-              <button className="link-btn" onClick={() => { clear(); setView('reset'); }}>Forgot password?</button>
-              {'  ·  '}
-              <button className="link-btn" onClick={() => { clear(); setView('signup'); }}>Create account</button>
-            </div>
-          </>
-        )}
-
-        {view === 'signup' && (
-          <>
-            <h1 className="auth-title">Create account</h1>
-            <p className="auth-subtitle">Join Samsa prediction markets</p>
-
-            {/* Google — primary CTA */}
-            <button className="btn-google" onClick={handleGoogle} disabled={loading}>
-              <GoogleIcon />
-              <span>Sign up with Google</span>
-            </button>
-
-            <div className="auth-divider">or sign up with email</div>
-
-            <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div className="form-group">
-                <label className="form-label">Email</label>
-                <input id="signupEmail" className="form-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" required autoFocus />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password</label>
-                <input id="signupPassword" className="form-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Min 8 characters" required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Confirm password</label>
-                <input id="signupConfirm" className="form-input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="••••••••" required />
-              </div>
-              {error && <p className="form-error">{error}</p>}
-              {info && <p style={{ fontSize: 12, color: 'var(--green)' }}>{info}</p>}
-              <button id="signupSubmit" className="btn btn-primary btn-full" type="submit" disabled={loading}>
-                {loading ? 'Creating…' : 'Create account'}
-              </button>
-            </form>
-            <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
-              Already have an account?{' '}
-              <button className="link-btn" onClick={() => { clear(); setView('login'); }}>Sign in</button>
+            <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: '#cbd5e1' }}>
+              <button className="link-btn" onClick={() => navigate('/')}>Create account</button>
             </div>
           </>
         )}
@@ -141,7 +111,7 @@ export default function AuthPage() {
                 {loading ? 'Sending…' : 'Send reset link'}
               </button>
             </form>
-            <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: 'var(--text-secondary)' }}>
+            <div style={{ marginTop: 20, textAlign: 'center', fontSize: 13, color: '#cbd5e1' }}>
               <button className="link-btn" onClick={() => { clear(); setView('login'); }}>Back to sign in</button>
             </div>
           </>
