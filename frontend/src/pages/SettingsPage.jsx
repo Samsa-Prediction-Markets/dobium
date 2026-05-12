@@ -17,7 +17,6 @@ export default function SettingsPage() {
   };
 
   const email = session?.user?.email || 'Not logged in';
-  const userId = session?.user?.id || '—';
   const createdAt = session?.user?.created_at ? new Date(session.user.created_at).toLocaleDateString() : '—';
 
   return (
@@ -36,12 +35,6 @@ export default function SettingsPage() {
               <div>
                 <div className="text-sm font-semibold text-white">Email</div>
                 <div className="text-xs text-slate-500 mt-0.5">{email}</div>
-              </div>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b border-slate-800">
-              <div>
-                <div className="text-sm font-semibold text-white">User ID</div>
-                <div className="text-xs text-slate-500 mt-0.5 font-mono">{userId}</div>
               </div>
             </div>
             <div className="flex justify-between items-center py-3">
@@ -88,6 +81,23 @@ export default function SettingsPage() {
             >
               Clear
             </button>
+          </div>
+        </div>
+
+        {/* Paper Trading Disclaimer Section */}
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-5 mb-4">
+          <h2 className="text-sm font-bold uppercase tracking-wider text-yellow-400 mb-4">⚠️ Paper Trading Mode</h2>
+          <div className="space-y-2 text-sm text-slate-300">
+            <p className="font-semibold text-white">Dobium is currently in paper trading mode.</p>
+            <ul className="list-disc list-inside space-y-1 text-xs">
+              <li>All trades use virtual funds only</li>
+              <li>No real money or assets are involved</li>
+              <li>This is for learning and testing purposes</li>
+              <li>Market data may not be real-time</li>
+            </ul>
+            <p className="text-xs text-slate-400 mt-3">
+              When live trading becomes available, you will be notified and real capital will be required.
+            </p>
           </div>
         </div>
 
