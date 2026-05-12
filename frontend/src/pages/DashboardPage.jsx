@@ -289,20 +289,20 @@ export default function DashboardPage() {
   const netProfitLoss = totalReturned - settledStake;
   const availableBalance = startingBalance + netProfitLoss - totalStaked;
 
-  // Mark-to-market: expected value using FIXED entry payouts weighted by current probability
-  // win_payout  = S + S(1−p_entry)  = S(2−p_entry)   [fixed at trade time]
-  // loss_refund = S − S(1−p_entry)  = S × p_entry     [fixed at trade time]
-  // current_value = p_current × win_payout + (1−p_current) × loss_refund
-  // → value always stays between loss_refund and win_payout floors/ceilings
+  // Mark-to-market valuation using user-specified formula:
+  //   R_max     = S + S(1 - p_entry)          ← win payout
+  //   R_min     = S - S(1 - p_entry)          ← loss refund  (= S × p_entry)
+  //   R_current = R_min + (R_max - R_min) × p_current
   const activeMtmValue = predictions.reduce((sum, p) => {
-    const market = markets.find(m => m.id === p.market_id);
+    const market  = markets.find(m => m.id === p.market_id);
     const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
     const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
     const pEntry   = (p.odds_at_prediction || 50) / 100;
-    const S = p.stake_amount || 0;
-    const winPayout   = S * (2 - pEntry);   // S + S(1−p_entry)
-    const lossRefund  = S * pEntry;          // S − S(1−p_entry)
-    return sum + pCurrent * winPayout + (1 - pCurrent) * lossRefund;
+    const S        = p.stake_amount || 0;
+    const R_max     = S + S * (1 - pEntry);
+    const R_min     = S - S * (1 - pEntry);
+    const R_current = R_min + (R_max - R_min) * pCurrent;
+    return sum + R_current;
   }, 0);
 
   const portfolioValue = availableBalance + activeMtmValue;
@@ -332,14 +332,16 @@ export default function DashboardPage() {
     // Guard: if no predictions have timestamps, bail out
     if (!sorted.length) return [];
 
-    // Helper: EV of a position using current market probability
+    // R_current = R_min + (R_max - R_min) × p_current
     const getMtm = (p) => {
-      const market = markets.find(m => m.id === p.market_id);
+      const market  = markets.find(m => m.id === p.market_id);
       const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
       const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
       const pEntry   = (p.odds_at_prediction || 50) / 100;
       const S        = p.stake_amount || 0;
-      return pCurrent * S * (2 - pEntry) + (1 - pCurrent) * S * pEntry;
+      const R_max     = S + S * (1 - pEntry);
+      const R_min     = S - S * (1 - pEntry);
+      return R_min + (R_max - R_min) * pCurrent;
     };
 
     // Anchor at start of the day of the first trade
@@ -598,13 +600,14 @@ export default function DashboardPage() {
                             const outcome = market?.outcomes?.find(o => o.id === outcomeId);
                             const currentProb = outcome?.probability ?? 50;
                             const avgEntry = data.totalStake > 0 ? data.weightedOdds / data.totalStake : 50;
-                            // Expected value using FIXED entry payouts, weighted by current probability
+                            // R_max = S + S(1-p_entry), R_min = S - S(1-p_entry)
+                            // R_current = R_min + (R_max - R_min) * p_current
                             const pCurrent = currentProb / 100;
                             const pEntry   = avgEntry / 100;
                             const S = data.totalStake;
-                            const winPayout  = S * (2 - pEntry);   // S + S(1−p_entry)
-                            const lossRefund = S * pEntry;          // S × p_entry
-                            const mtmValue = pCurrent * winPayout + (1 - pCurrent) * lossRefund;
+                            const R_max     = S + S * (1 - pEntry);
+                            const R_min     = S - S * (1 - pEntry);
+                            const mtmValue  = R_min + (R_max - R_min) * pCurrent;
                             const unrealizedPnl = mtmValue - S;
                             const sellKey = `${marketId}__${outcomeId}`;
                             const isSelling = sellingKey === sellKey;

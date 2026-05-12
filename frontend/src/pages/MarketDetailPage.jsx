@@ -317,12 +317,14 @@ export default function MarketDetailPage() {
                     />
                   </div>
                   {userPositions[o.id] > 0 && (() => {
-                    const S = userPositions[o.id];
+                    const S        = userPositions[o.id];
                     const pEntry   = (userAvgEntry[o.id] || 50) / 100;
                     const pCurrent = (o.probability || 50) / 100;
-                    const winPayout  = S * (2 - pEntry);  // S + S(1−p_entry)
-                    const lossRefund = S * pEntry;         // S − S(1−p_entry)
-                    const mtmValue   = pCurrent * winPayout + (1 - pCurrent) * lossRefund;
+                    // R_max = S + S(1-p_entry), R_min = S - S(1-p_entry)
+                    // R_current = R_min + (R_max - R_min) × p_current
+                    const R_max        = S + S * (1 - pEntry);
+                    const R_min        = S - S * (1 - pEntry);
+                    const mtmValue     = R_min + (R_max - R_min) * pCurrent;
                     const unrealizedPnl = mtmValue - S;
                     return (
                     <div onClick={e => e.stopPropagation()}>
