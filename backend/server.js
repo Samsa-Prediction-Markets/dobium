@@ -400,14 +400,20 @@ app.post('/api/markets', async (req, res) => {
 // ============================================================================
 
 /**
- * Normalize a Sequelize Prediction instance to always return snake_case timestamps.
- * Sequelize with underscored:true still returns camelCase keys in .toJSON(),
- * but the frontend expects snake_case (created_at, updated_at).
+ * Normalize a Sequelize Prediction instance:
+ * 1. Ensure snake_case timestamps (Sequelize returns camelCase by default)
+ * 2. Parse DECIMAL columns to JS numbers (Sequelize returns them as strings from PostgreSQL)
  */
 function normalizePrediction(p) {
   const json = p.toJSON ? p.toJSON() : p;
   return {
     ...json,
+    // Numeric fields — Sequelize DECIMAL comes back as strings
+    stake_amount:       parseFloat(json.stake_amount)       || 0,
+    odds_at_prediction: parseFloat(json.odds_at_prediction) || 0,
+    potential_return:   parseFloat(json.potential_return)   || 0,
+    actual_return:      parseFloat(json.actual_return)      || 0,
+    // Timestamps — Sequelize underscored:true still serialises as camelCase
     created_at: json.created_at || json.createdAt || null,
     updated_at: json.updated_at || json.updatedAt || null,
   };
