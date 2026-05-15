@@ -184,6 +184,9 @@ export default function MarketDetailPage() {
   const isMultiMultiple = marketType === 'multi_multiple';
   const yesOutcome = outcomes.find(o => o.title?.toLowerCase() === 'yes') || outcomes[0];
 
+  // Use a floored value for buying power to avoid floating-point precision mismatch with the input's max attribute
+  const safeBuyingPower = buyingPower !== null ? Math.floor(buyingPower * 100) / 100 : null;
+
   const handleTrade = async (e) => {
     e.preventDefault();
     if (!selectedOutcome || !stake) return;
@@ -191,8 +194,8 @@ export default function MarketDetailPage() {
     const stakeNum = parseFloat(stake);
 
     // Client-side buying power guard
-    if (session?.user?.id && session.user.id !== 'demo_user' && buyingPower !== null && stakeNum > buyingPower) {
-      setTradeMsg(`❌ Insufficient buying power. Available: $${buyingPower.toFixed(2)}, Required: $${stakeNum.toFixed(2)}`);
+    if (session?.user?.id && session.user.id !== 'demo_user' && safeBuyingPower !== null && stakeNum > safeBuyingPower) {
+      setTradeMsg(`❌ Insufficient buying power. Available: $${safeBuyingPower.toFixed(2)}, Required: $${stakeNum.toFixed(2)}`);
       return;
     }
 
@@ -352,130 +355,125 @@ export default function MarketDetailPage() {
                     />
                   </div>
                   {userPositions[o.id] > 0 && (() => {
-                    const S        = userPositions[o.id];
-                    const pEntry   = (userAvgEntry[o.id] || 50) / 100;
+                    const S = userPositions[o.id];
+                    const pEntry = (userAvgEntry[o.id] || 50) / 100;
                     const pCurrent = (o.probability || 50) / 100;
                     // R_max = S + S(1-p_entry), R_min = S - S(1-p_entry)
                     // R_current = R_min + (R_max - R_min) × p_current
-                    const R_max        = S + S * (1 - pEntry);
-                    const R_min        = S - S * (1 - pEntry);
-                    const mtmValue     = R_min + (R_max - R_min) * pCurrent;
+                    const R_max = S + S * (1 - pEntry);
+                    const R_min = S - S * (1 - pEntry);
+                    const mtmValue = R_min + (R_max - R_min) * pCurrent;
                     const unrealizedPnl = mtmValue - S;
                     return (
-                    <div onClick={e => e.stopPropagation()}>
-                      <div className="flex items-center justify-between mt-2">
-                        <div className="text-xs font-medium">
-                          <span className="text-slate-400">Cost: </span>
-                          <span className="text-slate-300">${S.toFixed(2)}</span>
-                          {userAvgEntry[o.id] && (
-                            <span className="text-slate-500 ml-1">@ {userAvgEntry[o.id].toFixed(1)}%</span>
+                      <div onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between mt-2">
+                          <div className="text-xs font-medium">
+                            <span className="text-slate-400">Cost: </span>
+                            <span className="text-slate-300">${S.toFixed(2)}</span>
+                            {userAvgEntry[o.id] && (
+                              <span className="text-slate-500 ml-1">@ {userAvgEntry[o.id].toFixed(1)}%</span>
+                            )}
+                            <span className="mx-1 text-slate-600">·</span>
+                            <span className="text-slate-400">Value: </span>
+                            <span className={`font-semibold ${mtmValue < S ? 'text-red-400' : mtmValue > S ? 'text-green-400' : 'text-slate-300'
+                              }`}>${mtmValue.toFixed(2)}</span>
+                            <span className={`ml-1 text-[10px] ${unrealizedPnl < 0 ? 'text-red-500' : unrealizedPnl > 0 ? 'text-green-500' : 'text-slate-500'
+                              }`}>
+                              ({unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(2)})
+                            </span>
+                          </div>
+                          {market.status === 'active' && (
+                            <button
+                              onClick={e => {
+                                e.stopPropagation();
+                                if (sellingOutcomeId === o.id) {
+                                  setSellingOutcomeId(null); setSellAmount(''); setSellMsg('');
+                                } else {
+                                  setSellingOutcomeId(o.id); setSellAmount(''); setSellMsg('');
+                                }
+                              }}
+                              className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${sellingOutcomeId === o.id
+                                  ? 'bg-slate-700 text-slate-300'
+                                  : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
+                                }`}
+                            >
+                              {sellingOutcomeId === o.id ? 'Cancel' : 'Sell'}
+                            </button>
                           )}
-                          <span className="mx-1 text-slate-600">·</span>
-                          <span className="text-slate-400">Value: </span>
-                          <span className={`font-semibold ${
-                            mtmValue < S ? 'text-red-400' : mtmValue > S ? 'text-green-400' : 'text-slate-300'
-                          }`}>${mtmValue.toFixed(2)}</span>
-                          <span className={`ml-1 text-[10px] ${
-                            unrealizedPnl < 0 ? 'text-red-500' : unrealizedPnl > 0 ? 'text-green-500' : 'text-slate-500'
-                          }`}>
-                            ({unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(2)})
-                          </span>
                         </div>
-                        {market.status === 'active' && (
-                          <button
-                            onClick={e => {
-                              e.stopPropagation();
-                              if (sellingOutcomeId === o.id) {
-                                setSellingOutcomeId(null); setSellAmount(''); setSellMsg('');
-                              } else {
-                                setSellingOutcomeId(o.id); setSellAmount(''); setSellMsg('');
-                              }
-                            }}
-                            className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${
-                              sellingOutcomeId === o.id
-                                ? 'bg-slate-700 text-slate-300'
-                                : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
-                            }`}
+
+                        {sellingOutcomeId === o.id && (
+                          <form
+                            onSubmit={e => handleSell(e, o.id)}
+                            className="mt-3 pt-3 border-t border-slate-700/50 space-y-2"
                           >
-                            {sellingOutcomeId === o.id ? 'Cancel' : 'Sell'}
-                          </button>
+                            <p className="text-slate-500 text-xs">
+                              Sell at current price ({(o.probability || 50).toFixed(1)}%)
+                              {userAvgEntry[o.id] && (
+                                <span className={`ml-1 ${(o.probability || 50) >= userAvgEntry[o.id] ? 'text-green-400' : 'text-red-400'
+                                  }`}>
+                                  {(o.probability || 50) >= userAvgEntry[o.id] ? '↑' : '↓'} vs entry
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex gap-2">
+                              <div className="relative flex-1">
+                                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
+                                <input
+                                  type="number"
+                                  min="0.01"
+                                  max={userPositions[o.id]}
+                                  step="0.01"
+                                  value={sellAmount}
+                                  onChange={e => setSellAmount(e.target.value)}
+                                  placeholder={`Max $${userPositions[o.id].toFixed(2)}`}
+                                  className="w-full bg-slate-800 border border-slate-600 rounded-lg pl-7 pr-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500"
+                                />
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => setSellAmount(userPositions[o.id].toFixed(2))}
+                                className="px-3 py-2 text-xs bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
+                              >
+                                Max
+                              </button>
+                            </div>
+
+                            {parseFloat(sellAmount) > 0 && (
+                              <div className="bg-slate-800/60 rounded-lg p-2.5 space-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">You receive:</span>
+                                  <span className="text-white font-semibold">
+                                    ${(parseFloat(sellAmount) * ((o.probability || 50) / (userAvgEntry[o.id] || 50))).toFixed(2)}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">Net P&L:</span>
+                                  <span className={`font-semibold ${(o.probability || 50) >= (userAvgEntry[o.id] || 50) ? 'text-green-400' : 'text-red-400'
+                                    }`}>
+                                    {(o.probability || 50) >= (userAvgEntry[o.id] || 50) ? '+' : ''}
+                                    ${(parseFloat(sellAmount) * ((o.probability || 50) / (userAvgEntry[o.id] || 50)) - parseFloat(sellAmount)).toFixed(2)}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {sellMsg && (
+                              <p className={`text-xs ${sellMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
+                                {sellMsg}
+                              </p>
+                            )}
+
+                            <button
+                              type="submit"
+                              disabled={sellLoading || !parseFloat(sellAmount) || parseFloat(sellAmount) > userPositions[o.id]}
+                              className="w-full py-2 rounded-lg text-sm font-semibold bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            >
+                              {sellLoading ? 'Selling...' : `Confirm Sell $${parseFloat(sellAmount) > 0 ? parseFloat(sellAmount).toFixed(2) : '0.00'}`}
+                            </button>
+                          </form>
                         )}
                       </div>
-
-                      {sellingOutcomeId === o.id && (
-                        <form
-                          onSubmit={e => handleSell(e, o.id)}
-                          className="mt-3 pt-3 border-t border-slate-700/50 space-y-2"
-                        >
-                          <p className="text-slate-500 text-xs">
-                            Sell at current price ({(o.probability || 50).toFixed(1)}%)
-                            {userAvgEntry[o.id] && (
-                              <span className={`ml-1 ${
-                                (o.probability || 50) >= userAvgEntry[o.id] ? 'text-green-400' : 'text-red-400'
-                              }`}>
-                                {(o.probability || 50) >= userAvgEntry[o.id] ? '↑' : '↓'} vs entry
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex gap-2">
-                            <div className="relative flex-1">
-                              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 text-sm">$</span>
-                              <input
-                                type="number"
-                                min="0.01"
-                                max={userPositions[o.id]}
-                                step="0.01"
-                                value={sellAmount}
-                                onChange={e => setSellAmount(e.target.value)}
-                                placeholder={`Max $${userPositions[o.id].toFixed(2)}`}
-                                className="w-full bg-slate-800 border border-slate-600 rounded-lg pl-7 pr-3 py-2 text-white text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-500"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSellAmount(userPositions[o.id].toFixed(2))}
-                              className="px-3 py-2 text-xs bg-slate-800 border border-slate-600 rounded-lg text-slate-300 hover:text-white hover:border-slate-500 transition-colors"
-                            >
-                              Max
-                            </button>
-                          </div>
-
-                          {parseFloat(sellAmount) > 0 && (
-                            <div className="bg-slate-800/60 rounded-lg p-2.5 space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">You receive:</span>
-                                <span className="text-white font-semibold">
-                                  ${(parseFloat(sellAmount) * ((o.probability || 50) / (userAvgEntry[o.id] || 50))).toFixed(2)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-slate-400">Net P&L:</span>
-                                <span className={`font-semibold ${
-                                  (o.probability || 50) >= (userAvgEntry[o.id] || 50) ? 'text-green-400' : 'text-red-400'
-                                }`}>
-                                  {(o.probability || 50) >= (userAvgEntry[o.id] || 50) ? '+' : ''}
-                                  ${(parseFloat(sellAmount) * ((o.probability || 50) / (userAvgEntry[o.id] || 50)) - parseFloat(sellAmount)).toFixed(2)}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          {sellMsg && (
-                            <p className={`text-xs ${sellMsg.startsWith('✅') ? 'text-green-400' : 'text-red-400'}`}>
-                              {sellMsg}
-                            </p>
-                          )}
-
-                          <button
-                            type="submit"
-                            disabled={sellLoading || !parseFloat(sellAmount) || parseFloat(sellAmount) > userPositions[o.id]}
-                            className="w-full py-2 rounded-lg text-sm font-semibold bg-red-500/20 border border-red-500/50 text-red-400 hover:bg-red-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                          >
-                            {sellLoading ? 'Selling...' : `Confirm Sell $${parseFloat(sellAmount) > 0 ? parseFloat(sellAmount).toFixed(2) : '0.00'}`}
-                          </button>
-                        </form>
-                      )}
-                    </div>
                     );
                   })()}
                 </div>
@@ -511,19 +509,17 @@ export default function MarketDetailPage() {
 
                   {/* Buying Power Display */}
                   {session?.user?.id && session.user.id !== 'demo_user' && (
-                    <div className={`flex items-center justify-between rounded-lg px-4 py-3 border ${
-                      buyingPower !== null && parseFloat(stake) > buyingPower
+                    <div className={`flex items-center justify-between rounded-lg px-4 py-3 border ${safeBuyingPower !== null && parseFloat(stake) > safeBuyingPower
                         ? 'bg-red-500/10 border-red-500/40'
                         : 'bg-slate-800/50 border-slate-700'
-                    }`}>
-                      <span className="text-slate-400 text-xs font-medium">💰 Buying Power</span>
-                      <span className={`text-sm font-bold ${
-                        buyingPowerLoading ? 'text-slate-500' :
-                        buyingPower === null ? 'text-slate-500' :
-                        parseFloat(stake) > buyingPower ? 'text-red-400' :
-                        'text-green-400'
                       }`}>
-                        {buyingPowerLoading ? '...' : buyingPower !== null ? `$${buyingPower.toFixed(2)}` : 'N/A'}
+                      <span className="text-slate-400 text-xs font-medium">💰 Buying Power</span>
+                      <span className={`text-sm font-bold ${buyingPowerLoading ? 'text-slate-500' :
+                          buyingPower === null ? 'text-slate-500' :
+                            parseFloat(stake) > safeBuyingPower ? 'text-red-400' :
+                              'text-green-400'
+                        }`}>
+                        {buyingPowerLoading ? '...' : safeBuyingPower !== null ? `$${safeBuyingPower.toFixed(2)}` : 'N/A'}
                       </span>
                     </div>
                   )}
@@ -534,33 +530,32 @@ export default function MarketDetailPage() {
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
                       <input
                         type="number"
-                        min="1"
-                        max={buyingPower !== null && session?.user?.id !== 'demo_user' ? buyingPower : undefined}
+                        min="0.01"
+                        max={safeBuyingPower !== null && session?.user?.id !== 'demo_user' ? safeBuyingPower : undefined}
                         step="0.01"
                         value={stake}
                         onChange={e => setStake(e.target.value)}
                         placeholder="10.00"
                         required
-                        className={`w-full bg-slate-800 border rounded-lg px-4 pl-8 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 ${
-                          buyingPower !== null && parseFloat(stake) > buyingPower
+                        className={`w-full bg-slate-800 border rounded-lg px-4 pl-8 py-3 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 ${safeBuyingPower !== null && parseFloat(stake) > safeBuyingPower
                             ? 'border-red-500 focus:ring-red-500/50'
                             : 'border-slate-700 focus:ring-yellow-500/50 focus:border-yellow-500'
-                        }`}
+                          }`}
                       />
                     </div>
-                    {buyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && parseFloat(stake) > buyingPower && (
+                    {safeBuyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && parseFloat(stake) > safeBuyingPower && (
                       <p className="text-red-400 text-xs mt-1.5 flex items-center gap-1">
                         <span>⚠</span>
-                        <span>Exceeds your buying power by ${(parseFloat(stake) - buyingPower).toFixed(2)}</span>
+                        <span>Exceeds your buying power by ${(parseFloat(stake) - safeBuyingPower).toFixed(2)}</span>
                       </p>
                     )}
-                    {buyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && (
+                    {safeBuyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && (
                       <button
                         type="button"
-                        onClick={() => setStake(buyingPower.toFixed(2))}
+                        onClick={() => setStake(safeBuyingPower.toFixed(2))}
                         className="mt-1.5 text-xs text-yellow-500 hover:text-yellow-400 transition-colors"
                       >
-                        Use max (${ buyingPower.toFixed(2)})
+                        Use max (${safeBuyingPower.toFixed(2)})
                       </button>
                     )}
                   </div>
@@ -601,7 +596,7 @@ export default function MarketDetailPage() {
 
                   <button
                     type="submit"
-                    disabled={tradeLoading || (buyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && parseFloat(stake) > buyingPower)}
+                    disabled={tradeLoading || (safeBuyingPower !== null && session?.user?.id && session.user.id !== 'demo_user' && parseFloat(stake) > safeBuyingPower)}
                     className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 disabled:from-slate-700 disabled:to-slate-700 text-slate-950 disabled:text-slate-500 font-bold py-3 rounded-xl transition-all"
                   >
                     {tradeLoading ? 'Placing Prediction...' : 'Place Prediction'}
