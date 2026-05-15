@@ -245,6 +245,15 @@ function recomputeProbabilities(outcomes, totalVolume, marketType) {
   }));
 }
 
+function calculatePositionValue(stake, entryProbability, currentProbability) {
+  const S = Number(stake || 0);
+  const pEntry = Math.max(0, Math.min(100, Number(entryProbability || 0))) / 100;
+  const pCurrent = Math.max(0, Math.min(100, Number(currentProbability || 0))) / 100;
+  const maxReturn = S + S * (1 - pEntry);
+  const minReturn = S * pEntry;
+  return parseFloat((minReturn + (maxReturn - minReturn) * pCurrent).toFixed(2));
+}
+
 /**
  * Fetch a market by ID with outcomes and price_history included
  */
@@ -702,10 +711,7 @@ app.post('/api/positions/sell', async (req, res) => {
       const weightedOddsSum = userPositions.reduce((sum, p) => sum + parseFloat(p.odds_at_prediction || 50) * parseFloat(p.stake_amount || 0), 0);
       const avgEntryProb = weightedOddsSum / totalStake;
 
-      const sellReturn = Math.min(
-        parseFloat((sell_amount * (currentProb / avgEntryProb)).toFixed(2)),
-        sell_amount * 2
-      );
+      const sellReturn = calculatePositionValue(sell_amount, avgEntryProb, currentProb);
 
       // Reduce stakes across predictions (oldest first)
       let remaining = sell_amount;
@@ -716,12 +722,12 @@ app.post('/api/positions/sell', async (req, res) => {
           remaining -= stake;
           await p.update({
             status: 'sold',
-            actual_return: parseFloat((stake * (currentProb / avgEntryProb)).toFixed(2)),
+            actual_return: calculatePositionValue(stake, avgEntryProb, currentProb),
             sold_at: new Date()
           }, { transaction: t });
         } else {
           const splitStake = parseFloat(remaining.toFixed(2));
-          const splitReturn = parseFloat((splitStake * (currentProb / avgEntryProb)).toFixed(2));
+          const splitReturn = calculatePositionValue(splitStake, avgEntryProb, currentProb);
           await Prediction.create({
             id: nanoid(12),
             market_id: p.market_id,

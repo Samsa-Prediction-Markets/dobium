@@ -50,6 +50,15 @@ function recomputeMarketStats(market) {
   }
 }
 
+function calculatePositionValue(stake, entryProbability, currentProbability) {
+  const S = Number(stake || 0);
+  const pEntry = Math.max(0, Math.min(100, Number(entryProbability || 0))) / 100;
+  const pCurrent = Math.max(0, Math.min(100, Number(currentProbability || 0))) / 100;
+  const maxReturn = S + S * (1 - pEntry);
+  const minReturn = S * pEntry;
+  return Number((minReturn + (maxReturn - minReturn) * pCurrent).toFixed(2));
+}
+
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, service: 'samsa-api' });
 });
@@ -413,8 +422,7 @@ app.post('/api/positions/sell', async (req, res) => {
   const avgEntryProb = totalStake > 0 ? weightedSum / totalStake : 50;
   const currentProb = outcome.probability || 50;
 
-  // Sell return uses the ratio of current vs entry price
-  const sell_return = Number((sell_amount * (currentProb / Math.max(avgEntryProb, 1))).toFixed(2));
+  const sell_return = calculatePositionValue(sell_amount, avgEntryProb, currentProb);
 
   // Reduce / close predictions FIFO
   let remaining = sell_amount;
@@ -424,14 +432,14 @@ app.post('/api/positions/sell', async (req, res) => {
     if (pred.stake_amount <= remaining + 0.001) {
       remaining -= pred.stake_amount;
       pred.status = 'sold';
-      pred.actual_return = Number((pred.stake_amount * (currentProb / Math.max(avgEntryProb, 1))).toFixed(2));
+      pred.actual_return = calculatePositionValue(pred.stake_amount, avgEntryProb, currentProb);
       pred.sold_at = new Date().toISOString();
       // Reduce market stake
       outcome.total_stake = Math.max(0, (outcome.total_stake || 0) - pred.stake_amount);
     } else {
       // Partial sell – split the prediction
       const splitStake = remaining;
-      const splitReturn = Number((splitStake * (currentProb / Math.max(avgEntryProb, 1))).toFixed(2));
+      const splitReturn = calculatePositionValue(splitStake, avgEntryProb, currentProb);
       const splitPred = {
         ...pred,
         id: nanoid(12),
