@@ -273,9 +273,21 @@ async function fetchMarketWithRelations(marketId, transaction = null) {
  */
 function formatMarketResponse(market) {
   const m = market.toJSON ? market.toJSON() : market;
+  let winning_outcome_ids = [];
+  if (m.winning_outcome_ids && Array.isArray(m.winning_outcome_ids)) {
+    winning_outcome_ids = m.winning_outcome_ids;
+  } else if (m.winning_outcome_id) {
+    try {
+      const parsed = JSON.parse(m.winning_outcome_id);
+      winning_outcome_ids = Array.isArray(parsed) ? parsed : [m.winning_outcome_id];
+    } catch {
+      winning_outcome_ids = [m.winning_outcome_id];
+    }
+  }
   return {
     ...m,
     total_volume: parseFloat(m.total_volume || 0),
+    winning_outcome_ids,
     outcomes: (m.outcomes || []).map(o => ({
       ...o,
       probability: parseFloat(o.probability || 0),
@@ -285,6 +297,94 @@ function formatMarketResponse(market) {
       timestamp: ph.timestamp,
       prices: ph.prices
     }))
+  };
+}
+
+const ICEMAN_RESOLUTION_DATE = '2026-05-15T05:00:00.000Z';
+
+const KNOWN_MARKET_RESOLUTIONS = {
+  drake_iceman_release: {
+    winningOutcomeIds: ['yes'],
+    resolutionDate: ICEMAN_RESOLUTION_DATE
+  },
+  drake_iceman_features: {
+    winningOutcomeIds: ['21savage', 'future'],
+    resolutionDate: ICEMAN_RESOLUTION_DATE
+  }
+};
+
+function getRawOutcomeId(outcomeId, marketId) {
+  const prefix = `${marketId}_`;
+  return outcomeId && outcomeId.startsWith(prefix) ? outcomeId.slice(prefix.length) : outcomeId;
+}
+
+function serializeWinningOutcomeIds(winningOutcomeIds) {
+  return winningOutcomeIds.length === 1
+    ? winningOutcomeIds[0]
+    : JSON.stringify(winningOutcomeIds);
+}
+
+function resolveOutcomeIds(market, requestedOutcomeIds) {
+  const ids = Array.isArray(requestedOutcomeIds)
+    ? requestedOutcomeIds.filter(Boolean)
+    : [requestedOutcomeIds].filter(Boolean);
+
+  if (ids.length === 0) {
+    throw Object.assign(new Error('winning_outcome_id or winning_outcome_ids is required'), { status: 400 });
+  }
+
+  if (market.market_type !== 'multi_multiple' && ids.length > 1) {
+    throw Object.assign(new Error('Only multi-select markets can resolve with multiple winning outcomes'), { status: 400 });
+  }
+
+  const resolvedIds = ids.map((id) => {
+    const match = market.outcomes.find((outcome) => (
+      outcome.id === id || outcome.id === `${market.id}_${id}` || getRawOutcomeId(outcome.id, market.id) === id
+    ));
+    if (!match) {
+      throw Object.assign(new Error(`Invalid winning outcome: ${id}`), { status: 400 });
+    }
+    return match.id;
+  });
+
+  return [...new Set(resolvedIds)];
+}
+
+async function resolveMarketInstance(market, requestedOutcomeIds, options = {}) {
+  const transaction = options.transaction;
+  const resolutionDate = options.resolutionDate ? new Date(options.resolutionDate) : new Date();
+  const winningOutcomeIds = resolveOutcomeIds(market, requestedOutcomeIds);
+  const winningSet = new Set(winningOutcomeIds);
+
+  await market.update({
+    status: 'resolved',
+    winning_outcome_id: serializeWinningOutcomeIds(winningOutcomeIds),
+    resolution_date: resolutionDate
+  }, { transaction });
+
+  for (const outcome of market.outcomes) {
+    await outcome.update({
+      probability: winningSet.has(outcome.id) ? 100 : 0
+    }, { transaction });
+  }
+
+  const predictions = await Prediction.findAll({
+    where: { market_id: market.id, status: 'active' },
+    transaction
+  });
+
+  for (const prediction of predictions) {
+    const won = winningSet.has(prediction.outcome_id);
+    await prediction.update({
+      status: won ? 'won' : 'lost',
+      actual_return: won ? prediction.potential_return : 0,
+      resolved_at: resolutionDate
+    }, { transaction });
+  }
+
+  return {
+    market,
+    winningOutcomeIds
   };
 }
 
@@ -794,10 +894,9 @@ app.post('/api/positions/sell', async (req, res) => {
 
 app.post('/api/markets/:id/resolve', async (req, res) => {
   try {
-    const { winning_outcome_id } = req.body;
+    const { winning_outcome_id, winning_outcome_ids } = req.body;
 
     const result = await sequelize.transaction(async (t) => {
-      // Find market with outcomes
       const market = await Market.findByPk(req.params.id, {
         include: [{ model: Outcome, as: 'outcomes' }],
         transaction: t
@@ -807,43 +906,21 @@ app.post('/api/markets/:id/resolve', async (req, res) => {
         throw new Error('Market not found');
       }
 
-      const winOutcome = market.outcomes.find((o) => o.id === winning_outcome_id);
-      if (!winOutcome) {
-        throw new Error('Invalid winning_outcome_id');
-      }
-
-      // Update market status
-      await market.update({
-        status: 'resolved',
-        winning_outcome_id,
-        resolution_date: new Date()
-      }, { transaction: t });
-
-      // Update all predictions for this market
-      const predictions = await Prediction.findAll({
-        where: { market_id: market.id },
-        transaction: t
-      });
-
-      for (const prediction of predictions) {
-        const won = prediction.outcome_id === winning_outcome_id;
-        await prediction.update({
-          status: won ? 'won' : 'lost',
-          actual_return: won ? prediction.potential_return : 0,
-          resolved_at: new Date()
-        }, { transaction: t });
-      }
-
-      return market;
+      return resolveMarketInstance(market, winning_outcome_ids || winning_outcome_id, { transaction: t });
     });
 
-    res.json({ ok: true, market: formatMarketResponse(result) });
+    const refreshed = await fetchMarketWithRelations(req.params.id);
+    res.json({
+      ok: true,
+      winning_outcome_ids: result.winningOutcomeIds,
+      market: formatMarketResponse(refreshed)
+    });
   } catch (error) {
     console.error('Resolve market error:', error);
     if (error.message === 'Market not found') {
       return res.status(404).json({ error: error.message });
     }
-    if (error.message === 'Invalid winning_outcome_id') {
+    if (error.status) {
       return res.status(400).json({ error: error.message });
     }
     res.status(500).json({ error: 'Failed to resolve market' });
@@ -1291,6 +1368,34 @@ async function seedMarketsFromJson() {
   }
 }
 
+async function applyKnownMarketResolutions() {
+  console.log('Applying known Iceman market resolutions...');
+  for (const [marketId, resolution] of Object.entries(KNOWN_MARKET_RESOLUTIONS)) {
+    try {
+      await sequelize.transaction(async (t) => {
+        const market = await Market.findByPk(marketId, {
+          include: [{ model: Outcome, as: 'outcomes' }],
+          transaction: t
+        });
+
+        if (!market) {
+          console.log(`  Market ${marketId} not found; skipping`);
+          return;
+        }
+
+        const result = await resolveMarketInstance(market, resolution.winningOutcomeIds, {
+          transaction: t,
+          resolutionDate: resolution.resolutionDate
+        });
+
+        console.log(`  Resolved ${marketId}: ${result.winningOutcomeIds.join(', ')}`);
+      });
+    } catch (err) {
+      console.error(`  Failed to resolve ${marketId}: ${err.message}`);
+    }
+  }
+}
+
 async function initDatabase() {
   try {
     await sequelize.authenticate();
@@ -1303,6 +1408,7 @@ async function initDatabase() {
     console.log(`📊 Markets in database: ${marketCount}`);
     console.log('🌱 Seeding missing markets from JSON...');
     await seedMarketsFromJson();
+    await applyKnownMarketResolutions();
   } catch (error) {
     console.error('❌ Database initialization failed:', error.message);
     console.error('   Markets, predictions, and positions require a PostgreSQL database.');

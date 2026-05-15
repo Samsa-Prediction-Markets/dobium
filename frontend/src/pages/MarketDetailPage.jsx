@@ -123,6 +123,19 @@ export default function MarketDetailPage() {
   const sortedOutcomes = market?.outcomes
     ? [...market.outcomes].sort((a, b) => (b.probability || 0) - (a.probability || 0))
     : [];
+  const winningOutcomeIds = (() => {
+    if (!market) return [];
+    if (Array.isArray(market.winning_outcome_ids)) return market.winning_outcome_ids;
+    if (!market.winning_outcome_id) return [];
+    try {
+      const parsed = JSON.parse(market.winning_outcome_id);
+      return Array.isArray(parsed) ? parsed : [market.winning_outcome_id];
+    } catch {
+      return [market.winning_outcome_id];
+    }
+  })();
+  const winningOutcomeSet = new Set(winningOutcomeIds);
+  const winningOutcomes = sortedOutcomes.filter(o => winningOutcomeSet.has(o.id));
   const [stake, setStake] = useState('');
   const [tradeLoading, setTradeLoading] = useState(false);
   const [tradeMsg, setTradeMsg] = useState('');
@@ -266,9 +279,9 @@ export default function MarketDetailPage() {
           <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${CATEGORY_COLORS[market.category] || 'from-slate-500 to-slate-600'} text-white`}>
             {market.category}
           </span>
-          <span className="flex items-center gap-1.5 text-xs text-green-400 font-medium">
-            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-            {market.status === 'active' ? 'Open' : 'Closed'}
+          <span className={`flex items-center gap-1.5 text-xs font-medium ${market.status === 'active' ? 'text-green-400' : 'text-yellow-400'}`}>
+            <span className={`w-2 h-2 rounded-full ${market.status === 'active' ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></span>
+            {market.status === 'active' ? 'Open' : 'Resolved'}
           </span>
         </div>
         <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">{market.title}</h1>
@@ -276,8 +289,24 @@ export default function MarketDetailPage() {
         <div className="flex items-center gap-4 mt-4 text-sm text-slate-500">
           <span>Volume: ${(market.total_volume || 0).toLocaleString()}</span>
           {market.close_date && <span>Closes: {formatDate(market.close_date)}</span>}
+          {market.resolution_date && <span>Resolved: {formatDate(market.resolution_date)}</span>}
         </div>
       </div>
+
+      {market.status === 'resolved' && (
+        <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-yellow-400 mb-2">Final Resolution</p>
+          <div className="flex flex-wrap gap-2">
+            {winningOutcomes.length > 0 ? winningOutcomes.map(outcome => (
+              <span key={outcome.id} className="inline-flex items-center rounded-lg border border-green-500/40 bg-green-500/10 px-3 py-1 text-sm font-semibold text-green-300">
+                {outcome.title}
+              </span>
+            )) : (
+              <span className="text-sm text-slate-300">No winning outcome recorded.</span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Price Chart */}
       <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-6 mb-6">
@@ -306,6 +335,7 @@ export default function MarketDetailPage() {
               const isYes = o.title?.toLowerCase() === 'yes';
               const isNo = o.title?.toLowerCase() === 'no';
               const isSelected = selectedOutcome?.id === o.id;
+              const isWinner = winningOutcomeSet.has(o.id);
 
               let colorClasses = 'border-slate-700 hover:border-slate-600';
               let textColorClass = 'text-slate-300';
@@ -324,6 +354,11 @@ export default function MarketDetailPage() {
                 textColorClass = 'text-yellow-400';
                 barColorClass = 'bg-yellow-500';
               }
+              if (market.status === 'resolved') {
+                colorClasses = isWinner ? 'border-green-500 bg-green-500/10' : 'border-slate-800 opacity-70';
+                textColorClass = isWinner ? 'text-green-400' : 'text-slate-500';
+                barColorClass = isWinner ? 'bg-green-500' : 'bg-slate-700';
+              }
 
               return (
                 <div
@@ -333,7 +368,12 @@ export default function MarketDetailPage() {
                   onClick={() => market.status === 'active' && setSelectedOutcome(o)}
                 >
                   <div className="flex justify-between items-center mb-3">
-                    <span className="text-white font-medium">{o.title}</span>
+                    <span className="flex items-center gap-2 text-white font-medium">
+                      {o.title}
+                      {market.status === 'resolved' && isWinner && (
+                        <span className="rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] font-bold uppercase text-green-300">Won</span>
+                      )}
+                    </span>
                     <span className={`text-2xl font-bold ${textColorClass}`}>
                       {(o.probability || 0).toFixed(2)}%
                     </span>

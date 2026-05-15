@@ -63,7 +63,7 @@ const Market = sequelize.define('Market', {
     allowNull: true
   },
   winning_outcome_id: {
-    type: DataTypes.STRING(50),
+    type: DataTypes.TEXT,
     allowNull: true
   },
   search_keywords: {

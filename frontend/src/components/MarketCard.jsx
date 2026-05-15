@@ -140,6 +140,18 @@ export default function MarketCard({ market }) {
   const isBinary = marketType === 'binary';
   const isMultiMultiple = marketType === 'multi_multiple';
   const typeLabel = isBinary ? 'Binary' : isMultiMultiple ? 'Multi-Independent' : 'Multi';
+  const isResolved = market.status === 'resolved';
+  const winningOutcomeIds = (() => {
+    if (Array.isArray(market.winning_outcome_ids)) return market.winning_outcome_ids;
+    if (!market.winning_outcome_id) return [];
+    try {
+      const parsed = JSON.parse(market.winning_outcome_id);
+      return Array.isArray(parsed) ? parsed : [market.winning_outcome_id];
+    } catch {
+      return [market.winning_outcome_id];
+    }
+  })();
+  const winningOutcomeSet = new Set(winningOutcomeIds);
 
   let outcomeButtons;
   if (isBinary) {
@@ -149,7 +161,11 @@ export default function MarketCard({ market }) {
           <button
             key={outcome.id}
             className={`flex-1 relative overflow-hidden rounded-lg px-3 py-2 transition-all duration-200 border ${
-              idx === 0
+              isResolved && winningOutcomeSet.has(outcome.id)
+                ? 'bg-green-500/15 border-green-500'
+                : isResolved
+                ? 'bg-slate-800/40 border-slate-700 opacity-70'
+                : idx === 0
                 ? 'bg-green-500/10 border-green-500/50 hover:border-green-500 hover:bg-green-500/20'
                 : 'bg-red-500/10 border-red-500/50 hover:border-red-500 hover:bg-red-500/20'
             } active:scale-95`}
@@ -163,6 +179,9 @@ export default function MarketCard({ market }) {
               <span className={`text-base font-semibold text-center ${idx === 0 ? 'text-green-400' : 'text-red-400'}`}>
                 {Math.round(outcome.probability || 0)}¢
               </span>
+              {isResolved && winningOutcomeSet.has(outcome.id) && (
+                <span className="text-[10px] font-bold uppercase text-green-300">Won</span>
+              )}
             </div>
           </button>
         ))}
@@ -175,10 +194,17 @@ export default function MarketCard({ market }) {
       <div className="w-full flex flex-wrap gap-2">
         {displayOutcomes.map((outcome, idx) => {
           const colors = MULTI_OPTION_COLORS[idx % MULTI_OPTION_COLORS.length];
+          const isWinner = winningOutcomeSet.has(outcome.id);
           return (
             <button
               key={outcome.id}
-              className={`w-[calc(50%-4px)] relative overflow-hidden rounded-lg px-3 py-2 transition-all duration-200 border ${colors.bg} ${colors.border} ${colors.hover} active:scale-[0.98] flex flex-col items-center justify-center`}
+              className={`w-[calc(50%-4px)] relative overflow-hidden rounded-lg px-3 py-2 transition-all duration-200 border ${
+                isResolved && isWinner
+                  ? 'bg-green-500/15 border-green-500'
+                  : isResolved
+                  ? 'bg-slate-800/40 border-slate-700 opacity-70'
+                  : `${colors.bg} ${colors.border} ${colors.hover}`
+              } active:scale-[0.98] flex flex-col items-center justify-center`}
               onClick={(e) => {
                 e.stopPropagation();
                 navigate(`/markets/${market.id}`);
@@ -188,6 +214,9 @@ export default function MarketCard({ market }) {
               <span className={`text-base font-semibold ${colors.text}`}>
                 {Math.round(outcome.probability || 0)}¢
               </span>
+              {isResolved && isWinner && (
+                <span className="text-[10px] font-bold uppercase text-green-300">Won</span>
+              )}
             </button>
           );
         })}
@@ -209,14 +238,14 @@ export default function MarketCard({ market }) {
             <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r ${CATEGORY_COLORS[market.category] || 'from-slate-500 to-slate-600'} text-white`}>
               {market.category}
             </span>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border ${typeLabel.class}`}>
-              <span>{typeLabel.text}</span>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium border border-slate-700 text-slate-400">
+              <span>{typeLabel}</span>
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-green-400 font-medium flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse inline-block"></span>
-              Live
+            <span className={`text-xs font-medium flex items-center gap-1 ${isResolved ? 'text-yellow-400' : 'text-green-400'}`}>
+              <span className={`w-2 h-2 rounded-full inline-block ${isResolved ? 'bg-yellow-400' : 'bg-green-400 animate-pulse'}`}></span>
+              {isResolved ? 'Resolved' : 'Live'}
             </span>
           </div>
         </div>

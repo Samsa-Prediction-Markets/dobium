@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS markets (
     resolution_date TIMESTAMP,
     total_volume DECIMAL(10,2) DEFAULT 0 CHECK (total_volume >= 0),
     image_url TEXT,
-    winning_outcome_id VARCHAR(8),
+    winning_outcome_id TEXT,
     search_keywords TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
