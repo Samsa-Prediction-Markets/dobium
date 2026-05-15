@@ -386,6 +386,29 @@ export default function DashboardPage() {
     return acc;
   }, {});
 
+  const recentActivities = allPredictions
+    .map(pred => {
+      const market = markets.find(m => m.id === pred.market_id);
+      const outcome = market?.outcomes?.find(o => o.id === pred.outcome_id);
+      const isSettled = ['won', 'lost'].includes(pred.status);
+      const isSold = pred.status === 'sold';
+      return {
+        id: pred.id,
+        type: isSettled ? 'resolution' : isSold ? 'trade' : 'trade',
+        label: isSettled ? (pred.status === 'won' ? 'Resolved Won' : 'Resolved Lost') : isSold ? 'Sold' : 'Bought',
+        marketId: pred.market_id,
+        marketTitle: market?.title || 'Unknown Market',
+        outcomeTitle: outcome?.title || 'Unknown',
+        amount: isSettled || isSold ? (pred.actual_return || 0) : (pred.stake_amount || 0),
+        pnl: isSettled || isSold ? (pred.actual_return || 0) - (pred.stake_amount || 0) : null,
+        status: pred.status,
+        date: pred.resolved_at || pred.sold_at || pred.updated_at || pred.created_at || new Date().toISOString()
+      };
+    })
+    .filter(activity => activeFilter === 'all' || activity.type === activeFilter)
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 8);
+
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-8">
       <div className="flex flex-col lg:flex-row gap-8">
@@ -549,10 +572,43 @@ export default function DashboardPage() {
               </div>
             </div>
             <div className="space-y-3">
-              <div className="text-slate-500 text-sm text-center py-8">
-                <p>No activity yet</p>
-                <p className="text-xs mt-1">Your trades and resolutions will appear here</p>
-              </div>
+              {recentActivities.length === 0 ? (
+                <div className="text-slate-500 text-sm text-center py-8">
+                  <p>No activity yet</p>
+                  <p className="text-xs mt-1">Your trades and resolutions will appear here</p>
+                </div>
+              ) : recentActivities.map(activity => (
+                <button
+                  key={activity.id}
+                  onClick={() => navigate(`/markets/${activity.marketId}`)}
+                  className="w-full rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:border-slate-700"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-semibold ${activity.type === 'resolution' ? 'text-yellow-400' : 'text-slate-400'}`}>
+                          {activity.label}
+                        </span>
+                        {activity.type === 'resolution' && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${activity.status === 'won' ? 'bg-green-500/15 text-green-300' : 'bg-red-500/15 text-red-300'}`}>
+                            {activity.status}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 truncate text-sm font-medium text-white">{activity.marketTitle}</p>
+                      <p className="text-xs text-slate-500">{activity.outcomeTitle}</p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-sm font-semibold text-white">{formatCurrency(activity.amount)}</p>
+                      {activity.pnl !== null && (
+                        <p className={`text-xs ${activity.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {activity.pnl >= 0 ? '+' : ''}{formatCurrency(activity.pnl)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
             <button className="w-full mt-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">
               View all activity →

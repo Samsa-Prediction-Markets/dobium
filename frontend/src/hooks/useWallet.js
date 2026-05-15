@@ -72,5 +72,9 @@ export function useWallet() {
     fetchTransactions();
   }, [fetchWallet, fetchTransactions]);
 
-  return { balance: wallet.balance, wallet, transactions, loading, refetch: fetchWallet };
+  const refetch = useCallback(async () => {
+    await Promise.all([fetchWallet(), fetchTransactions()]);
+  }, [fetchWallet, fetchTransactions]);
+
+  return { balance: wallet.balance, wallet, transactions, loading, refetch };
 }

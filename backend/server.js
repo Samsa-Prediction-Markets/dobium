@@ -90,7 +90,7 @@ async function calculateBalanceFromTransactions(userId, transaction = null) {
   // Trade P&L is derived from prediction records so dashboard, market page,
   // and server-side buying-power checks all share one ledger.
   const totalDeposits = transactions
-    .filter(t => t.type === 'deposit' && t.status === 'completed')
+    .filter(t => t.type === 'deposit' && t.status === 'completed' && t.payment_method !== 'sell_return')
     .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
   // Sum withdrawals (completed only)
@@ -375,11 +375,37 @@ async function resolveMarketInstance(market, requestedOutcomeIds, options = {}) 
 
   for (const prediction of predictions) {
     const won = winningSet.has(prediction.outcome_id);
+    const actualReturn = won ? parseFloat(prediction.potential_return || 0) : 0;
     await prediction.update({
       status: won ? 'won' : 'lost',
-      actual_return: won ? prediction.potential_return : 0,
+      actual_return: actualReturn,
       resolved_at: resolutionDate
     }, { transaction });
+
+    if (actualReturn > 0) {
+      await User.findOrCreate({
+        where: { id: prediction.user_id },
+        defaults: {
+          id: prediction.user_id,
+          username: 'user',
+          email: ''
+        },
+        transaction
+      });
+      await Transaction.findOrCreate({
+        where: { id: `payout_${prediction.id}` },
+        defaults: {
+          id: `payout_${prediction.id}`,
+          user_id: prediction.user_id,
+          type: 'payout',
+          amount: actualReturn,
+          payment_method: 'market_resolution',
+          status: 'completed',
+          completed_at: resolutionDate
+        },
+        transaction
+      });
+    }
   }
 
   return {

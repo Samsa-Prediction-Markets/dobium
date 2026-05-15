@@ -11,24 +11,38 @@ export default function WalletPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [msg, setMsg] = useState('');
 
-  const userId = session?.user?.id || 'demo';
+  const userId = session?.user?.id || 'demo_user';
 
   const handleDeposit = async (e) => {
-    e.preventDefault(); setMsg(''); setActionLoading(true);
+    e.preventDefault();
+    setMsg('');
+    setActionLoading(true);
     try {
       await api.deposit(userId, parseFloat(amount));
-      setMsg('✅ Deposit processed!'); setAmount(''); refetch();
-    } catch (err) { setMsg(`❌ ${err.message}`); }
-    finally { setActionLoading(false); }
+      setMsg('Deposit processed!');
+      setAmount('');
+      refetch();
+    } catch (err) {
+      setMsg(err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   const handleWithdraw = async (e) => {
-    e.preventDefault(); setMsg(''); setActionLoading(true);
+    e.preventDefault();
+    setMsg('');
+    setActionLoading(true);
     try {
       await api.withdraw(userId, parseFloat(amount));
-      setMsg('✅ Withdrawal processed!'); setAmount(''); refetch();
-    } catch (err) { setMsg(`❌ ${err.message}`); }
-    finally { setActionLoading(false); }
+      setMsg('Withdrawal processed!');
+      setAmount('');
+      refetch();
+    } catch (err) {
+      setMsg(err.message);
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -65,7 +79,11 @@ export default function WalletPage() {
             Withdraw
           </button>
         </form>
-        {msg && <p style={{ marginTop: 10, fontSize: 13, color: msg.startsWith('✅') ? 'var(--green)' : 'var(--red)' }}>{msg}</p>}
+        {msg && (
+          <p style={{ marginTop: 10, fontSize: 13, color: msg.endsWith('processed!') ? 'var(--green)' : 'var(--red)' }}>
+            {msg}
+          </p>
+        )}
       </div>
 
       <div className="section-title">Transaction History</div>
@@ -75,20 +93,23 @@ export default function WalletPage() {
           ? <div className="empty-state"><p>No transactions yet.</p></div>
           : (
             <div className="tx-list">
-              {transactions.map(tx => (
-                <div key={tx.id} className="tx-item">
-                  <div className={`tx-icon ${tx.type}`}>
-                    {tx.type === 'deposit' ? '↓' : '↑'}
+              {transactions.map(tx => {
+                const isDebit = tx.type === 'withdrawal';
+                return (
+                  <div key={tx.id} className="tx-item">
+                    <div className={`tx-icon ${tx.type}`}>
+                      {isDebit ? '-' : '+'}
+                    </div>
+                    <div className="tx-info">
+                      <div className="tx-type">{tx.type}</div>
+                      <div className="tx-date">{formatRelativeTime(tx.created_at)}</div>
+                    </div>
+                    <div className={`tx-amount ${tx.type}`}>
+                      {isDebit ? '-' : '+'}{formatCurrency(tx.amount)}
+                    </div>
                   </div>
-                  <div className="tx-info">
-                    <div className="tx-type">{tx.type}</div>
-                    <div className="tx-date">{formatRelativeTime(tx.created_at)}</div>
-                  </div>
-                  <div className={`tx-amount ${tx.type}`}>
-                    {tx.type === 'deposit' ? '+' : '-'}{formatCurrency(tx.amount)}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )
       }
