@@ -72,8 +72,12 @@ export default function LandingPage() {
     }
     setLoading(true);
     try {
-      await signup(email, password);
-      setInfo('Check your email to verify your account.');
+      const data = await signup(email, password);
+      if (data?.session) {
+        navigate('/');
+        return;
+      }
+      setInfo('Check your email to verify your account, then sign in.');
     } catch (err) {
       setError(err.message);
     } finally {

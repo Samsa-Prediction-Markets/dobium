@@ -21,9 +21,20 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const normalizeEmail = (email) => (email || '').trim().toLowerCase();
+
+  const getRedirectUrl = () => {
+    if (typeof window === 'undefined') return undefined;
+    return window.location.origin;
+  };
+
   const login = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizeEmail(email),
+      password,
+    });
     if (error) throw new Error(error.message);
+    setSession(data?.session ?? null);
     return data;
   };
 
@@ -31,7 +42,7 @@ export function AuthProvider({ children }) {
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getRedirectUrl(),
         queryParams: {
           prompt: 'select_account', // always show the account chooser
         },
@@ -43,17 +54,18 @@ export function AuthProvider({ children }) {
 
   const signup = async (email, password) => {
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: normalizeEmail(email),
       password,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: getRedirectUrl() },
     });
     if (error) throw new Error(error.message);
+    setSession(data?.session ?? null);
     return data;
   };
 
   const resetPassword = async (email) => {
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
+      redirectTo: getRedirectUrl(),
     });
     if (error) throw new Error(error.message);
   };
