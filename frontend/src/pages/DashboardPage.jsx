@@ -400,7 +400,9 @@ export default function DashboardPage() {
         marketId: pred.market_id,
         marketTitle: market?.title || 'Unknown Market',
         outcomeTitle: outcome?.title || 'Unknown',
+        probability: pred.odds_at_prediction || 50,
         amount: isSettled || isSold ? (pred.actual_return || 0) : (pred.stake_amount || 0),
+        stakeAmount: pred.stake_amount || 0,
         pnl: isSettled || isSold ? (pred.actual_return || 0) - (pred.stake_amount || 0) : null,
         status: pred.status,
         date: pred.resolved_at || pred.sold_at || pred.updated_at || pred.created_at || new Date().toISOString()
@@ -486,11 +488,6 @@ export default function DashboardPage() {
               <span className="text-2xl font-bold text-yellow-400">
                 {walletLoading ? '...' : `$${availableBalance.toFixed(2)}`}
               </span>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs text-slate-500 sm:grid-cols-3">
-              <span>Starting: ${startingBalance.toFixed(2)}</span>
-              <span>In positions: ${wallet.activeStakes.toFixed(2)}</span>
-              <span>Cash before positions: ${wallet.cashBalance.toFixed(2)}</span>
             </div>
             <p className="text-xs text-slate-500 mt-2">This buying power is virtual money for practice. No real funds are involved.</p>
           </div>
@@ -585,8 +582,8 @@ export default function DashboardPage() {
                   className="w-full rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-left transition-colors hover:border-slate-700"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
                         <span className={`text-xs font-semibold ${activity.type === 'resolution' ? 'text-yellow-400' : 'text-slate-400'}`}>
                           {activity.label}
                         </span>
@@ -596,15 +593,23 @@ export default function DashboardPage() {
                           </span>
                         )}
                       </div>
-                      <p className="mt-1 truncate text-sm font-medium text-white">{activity.marketTitle}</p>
-                      <p className="text-xs text-slate-500">{activity.outcomeTitle}</p>
+                      <p className="truncate text-sm font-medium text-white">{activity.marketTitle}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-xs text-slate-500">{activity.outcomeTitle}</p>
+                        <span className="text-xs text-slate-600 bg-slate-800/50 px-2 py-0.5 rounded">Entry: {activity.probability.toFixed(0)}%</span>
+                      </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold text-white">{formatCurrency(activity.amount)}</p>
-                      {activity.pnl !== null && (
-                        <p className={`text-xs ${activity.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                          {activity.pnl >= 0 ? '+' : ''}{formatCurrency(activity.pnl)}
-                        </p>
+                      {activity.type === 'resolution' ? (
+                        <>
+                          <p className="text-xs text-slate-400 mb-1">Invested: {formatCurrency(activity.stakeAmount)}</p>
+                          <p className={`text-sm font-semibold ${activity.pnl >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {activity.pnl >= 0 ? '+' : ''}{formatCurrency(activity.pnl)}
+                          </p>
+                          <p className="text-xs text-slate-500">Returned: {formatCurrency(activity.amount)}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm font-semibold text-white">{formatCurrency(activity.amount)}</p>
                       )}
                     </div>
                   </div>
