@@ -1,11 +1,13 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useState, useRef, useEffect } from 'react';
+import NotificationsPanel from './NotificationsPanel';
 
 export default function Sidebar() {
   const { session, logout } = useAuth();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const menuRef = useRef(null);
   const avatarRef = useRef(null);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
@@ -88,12 +90,12 @@ export default function Sidebar() {
   // Desktop Sidebar
   return (
     <>
-      <div className="sidebar">
+      <div className="sidebar" style={{ width: isNotificationsOpen ? '80px' : undefined, transition: 'width 0.3s ease' }}>
         <div className="sidebar-content">
           {/* Logo */}
           <div className="sidebar-logo" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
             <div className="sidebar-logo-icon">
-              <img src="/Logo.png" alt="Samsa" className="sidebar-logo-img" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+              <img src="/Logo.png" alt="Samsa" className="sidebar-logo-img" style={{ width: isNotificationsOpen ? 40 : 64, height: isNotificationsOpen ? 40 : 64, objectFit: 'contain', transition: 'all 0.3s ease' }} />
             </div>
           </div>
 
@@ -105,7 +107,7 @@ export default function Sidebar() {
                     d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 003 12c0-1.605.42-3.113 1.157-4.418" />
                 </svg>
               </div>
-              <span className="sidebar-item-text">Explore</span>
+              {!isNotificationsOpen && <span className="sidebar-item-text">Explore</span>}
             </NavLink>
 
             <NavLink to="/" end className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}>
@@ -115,7 +117,7 @@ export default function Sidebar() {
                     d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
                 </svg>
               </div>
-              <span className="sidebar-item-text">Dashboard</span>
+              {!isNotificationsOpen && <span className="sidebar-item-text">Dashboard</span>}
             </NavLink>
           </nav>
 
@@ -169,9 +171,11 @@ export default function Sidebar() {
                   </div>
                 )}
               </div>
-              <span className="sidebar-item-text" style={{ fontSize: 13 }}>
-                {displayName.split(' ')[0]}
-              </span>
+              {!isNotificationsOpen && (
+                <span className="sidebar-item-text" style={{ fontSize: 13 }}>
+                  {displayName.split(' ')[0]}
+                </span>
+              )}
             </button>
 
             {/* Floating popout menu */}
@@ -207,7 +211,7 @@ export default function Sidebar() {
 
                 {/* Notifications */}
                 <button
-                  onClick={() => { setMenuOpen(false); }}
+                  onClick={() => { setMenuOpen(false); setIsNotificationsOpen(true); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     width: '100%', padding: '10px 12px', borderRadius: 8,
@@ -272,6 +276,11 @@ export default function Sidebar() {
           </div>
         </div>
       </div>
+
+      <NotificationsPanel
+        isOpen={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+      />
     </>
   );
 }

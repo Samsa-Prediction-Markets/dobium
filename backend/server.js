@@ -636,6 +636,32 @@ app.post('/api/markets', async (req, res) => {
   }
 });
 
+// PUT update market
+app.put('/api/markets/:id', async (req, res) => {
+  try {
+    const { close_date, description, title, status } = req.body;
+    const result = await sequelize.transaction(async (t) => {
+      const market = await Market.findByPk(req.params.id, { transaction: t });
+      if (!market) throw Object.assign(new Error('Market not found'), { status: 404 });
+
+      await market.update({
+        ...(close_date !== undefined && { close_date }),
+        ...(description !== undefined && { description }),
+        ...(title !== undefined && { title }),
+        ...(status !== undefined && { status })
+      }, { transaction: t });
+
+      return await fetchMarketWithRelations(req.params.id, t);
+    });
+    res.json(formatMarketResponse(result));
+  } catch (error) {
+    if (error.status) return res.status(error.status).json({ error: error.message });
+    console.error('Update market error:', error);
+    res.status(500).json({ error: 'Failed to update market' });
+  }
+});
+
+
 // ============================================================================
 // PREDICTIONS — Database backed
 // ============================================================================
@@ -650,10 +676,10 @@ function normalizePrediction(p) {
   return {
     ...json,
     // Numeric fields — Sequelize DECIMAL comes back as strings
-    stake_amount:       parseFloat(json.stake_amount)       || 0,
+    stake_amount: parseFloat(json.stake_amount) || 0,
     odds_at_prediction: parseFloat(json.odds_at_prediction) || 0,
-    potential_return:   parseFloat(json.potential_return)   || 0,
-    actual_return:      parseFloat(json.actual_return)      || 0,
+    potential_return: parseFloat(json.potential_return) || 0,
+    actual_return: parseFloat(json.actual_return) || 0,
     // Timestamps — Sequelize underscored:true still serialises as camelCase
     created_at: json.created_at || json.createdAt || null,
     updated_at: json.updated_at || json.updatedAt || null,
