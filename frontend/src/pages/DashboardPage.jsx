@@ -12,33 +12,33 @@ import { formatCurrency } from '../store/storage';
 // Overlay canvas: pulsing live dot + crosshair  (requestAnimationFrame, 60fps)
 // ============================================================================
 function EquityChart({ equityPoints, startingBalance, currentValue }) {
-  const baseRef    = useRef(null);
+  const baseRef = useRef(null);
   const overlayRef = useRef(null);
-  const hoverRef   = useRef(null);   // shared between RAF loop and mouse handler
-  const animRef    = useRef(null);
-  const scaleRef   = useRef(null);   // cached scale data so RAF doesn't recompute
+  const hoverRef = useRef(null);   // shared between RAF loop and mouse handler
+  const animRef = useRef(null);
+  const scaleRef = useRef(null);   // cached scale data so RAF doesn't recompute
   const [tooltip, setTooltip] = useState(null);
 
-  const isProfit  = currentValue >= startingBalance;
+  const isProfit = currentValue >= startingBalance;
   const lineColor = isProfit ? '#22c55e' : '#ef4444';
-  const colorRgb  = isProfit ? '34,197,94' : '239,68,68';
-  const PAD       = { t: 20, r: 8, b: 8, l: 8 };
+  const colorRgb = isProfit ? '34,197,94' : '239,68,68';
+  const PAD = { t: 20, r: 8, b: 8, l: 8 };
 
   // ── Compute pixel coordinates from data ──────────────────────────────────
   const computeScale = useCallback((w, h) => {
     if (!equityPoints || equityPoints.length < 2) return null;
     const gw = w - PAD.l - PAD.r;
     const gh = h - PAD.t - PAD.b;
-    const vals     = equityPoints.map(p => p.value);
-    const allVals  = [startingBalance, ...vals];
-    const dataMin  = Math.min(...allVals);
-    const dataMax  = Math.max(...allVals);
-    const pad      = Math.max((dataMax - dataMin) * 0.15, 50);
-    const min      = dataMin - pad;
-    const max      = dataMax + pad;
-    const range    = max - min || 1;
-    const xs       = equityPoints.map((_, i) => PAD.l + (i / (equityPoints.length - 1)) * gw);
-    const ys       = equityPoints.map(p  => PAD.t + (1 - (p.value - min) / range) * gh);
+    const vals = equityPoints.map(p => p.value);
+    const allVals = [startingBalance, ...vals];
+    const dataMin = Math.min(...allVals);
+    const dataMax = Math.max(...allVals);
+    const pad = Math.max((dataMax - dataMin) * 0.15, 50);
+    const min = dataMin - pad;
+    const max = dataMax + pad;
+    const range = max - min || 1;
+    const xs = equityPoints.map((_, i) => PAD.l + (i / (equityPoints.length - 1)) * gw);
+    const ys = equityPoints.map(p => PAD.t + (1 - (p.value - min) / range) * gh);
     const baselineY = PAD.t + (1 - (startingBalance - min) / range) * gh;
     return { xs, ys, baselineY, w, h, gw, gh };
   }, [equityPoints, startingBalance, PAD.l, PAD.r, PAD.t, PAD.b]);
@@ -49,8 +49,8 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
     if (!canvas || !equityPoints || equityPoints.length < 2) return;
 
     const rect = canvas.getBoundingClientRect();
-    const dpr  = window.devicePixelRatio || 1;
-    canvas.width  = rect.width  * dpr;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
     const ctx = canvas.getContext('2d');
     ctx.scale(dpr, dpr);
@@ -68,7 +68,7 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
     ctx.beginPath();
     ctx.setLineDash([6, 4]);
     ctx.strokeStyle = '#475569';
-    ctx.lineWidth   = 1;
+    ctx.lineWidth = 1;
     ctx.globalAlpha = 0.5;
     ctx.moveTo(0, baselineY);
     ctx.lineTo(W, baselineY);
@@ -103,9 +103,9 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
     ctx.beginPath();
     buildPath(ctx);
     ctx.strokeStyle = lineColor;
-    ctx.lineWidth   = 2.5;
-    ctx.lineJoin    = 'round';
-    ctx.lineCap     = 'round';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
     ctx.stroke();
   }, [equityPoints, startingBalance, lineColor, colorRgb, computeScale]);
 
@@ -117,8 +117,8 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
 
     const frame = () => {
       const rect = overlay.getBoundingClientRect();
-      const dpr  = window.devicePixelRatio || 1;
-      overlay.width  = rect.width  * dpr;
+      const dpr = window.devicePixelRatio || 1;
+      overlay.width = rect.width * dpr;
       overlay.height = rect.height * dpr;
       const ctx = overlay.getContext('2d');
       ctx.scale(dpr, dpr);
@@ -134,14 +134,14 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
       const { xs, ys } = scale;
       const lastX = xs[xs.length - 1];
       const lastY = ys[ys.length - 1];
-      const hover  = hoverRef.current;
+      const hover = hoverRef.current;
 
       if (!hover) {
         // ── Pulsing live dot ──────────────────────────────────────────────
         phase += 0.04;
-        const pulse  = (Math.sin(phase) + 1) / 2;          // 0 → 1
-        const ring   = 7 + pulse * 9;                       // 7px → 16px
-        const alpha  = 0.45 * (1 - pulse);                  // fades as ring grows
+        const pulse = (Math.sin(phase) + 1) / 2;          // 0 → 1
+        const ring = 7 + pulse * 9;                       // 7px → 16px
+        const alpha = 0.45 * (1 - pulse);                  // fades as ring grows
         ctx.beginPath();
         ctx.arc(lastX, lastY, ring, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${colorRgb}, ${alpha})`;
@@ -149,17 +149,17 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
 
         ctx.beginPath();
         ctx.arc(lastX, lastY, 5, 0, Math.PI * 2);
-        ctx.fillStyle   = lineColor;
+        ctx.fillStyle = lineColor;
         ctx.fill();
         ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth   = 2;
+        ctx.lineWidth = 2;
         ctx.stroke();
       } else {
         // ── Crosshair ─────────────────────────────────────────────────────
         ctx.beginPath();
         ctx.setLineDash([3, 3]);
         ctx.strokeStyle = '#94a3b8';
-        ctx.lineWidth   = 1;
+        ctx.lineWidth = 1;
         ctx.globalAlpha = 0.6;
         ctx.moveTo(hover.x, PAD.t);
         ctx.lineTo(hover.x, H - PAD.b);
@@ -170,10 +170,10 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
         // Dot on the line
         ctx.beginPath();
         ctx.arc(hover.x, hover.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle   = lineColor;
+        ctx.fillStyle = lineColor;
         ctx.fill();
         ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth   = 2;
+        ctx.lineWidth = 2;
         ctx.stroke();
       }
 
@@ -188,10 +188,10 @@ function EquityChart({ equityPoints, startingBalance, currentValue }) {
   const handleMouseMove = useCallback((e) => {
     const overlay = overlayRef.current;
     if (!overlay || !equityPoints || !scaleRef.current) return;
-    const rect   = overlay.getBoundingClientRect();
+    const rect = overlay.getBoundingClientRect();
     const xRatio = (e.clientX - rect.left) / rect.width;
     const { xs, ys } = scaleRef.current;
-    const idx  = Math.max(0, Math.min(Math.round(xRatio * (xs.length - 1)), xs.length - 1));
+    const idx = Math.max(0, Math.min(Math.round(xRatio * (xs.length - 1)), xs.length - 1));
     const data = { x: xs[idx], y: ys[idx], value: equityPoints[idx].value, date: equityPoints[idx].date, pct: xs[idx] / rect.width };
     hoverRef.current = data;
     setTooltip(data);
@@ -252,13 +252,13 @@ export default function DashboardPage() {
   const { markets } = useMarkets();
   const { balance: buyingPower, wallet, loading: walletLoading, refetch: refetchWallet } = useWallet();
   const [selectedRange, setSelectedRange] = useState('1D');
-  const [activeFilter, setActiveFilter] = useState('all');
   const [predictions, setPredictions] = useState([]);
   const [allPredictions, setAllPredictions] = useState([]);
   const [sellingKey, setSellingKey] = useState(null); // 'marketId__outcomeId'
   const [sellAmount, setSellAmount] = useState('');
   const [sellLoading, setSellLoading] = useState(false);
   const [sellMsg, setSellMsg] = useState('');
+  const [showAllActivity, setShowAllActivity] = useState(false);
 
   const fetchPredictions = useCallback(() => {
     api.getPredictions()
@@ -295,13 +295,13 @@ export default function DashboardPage() {
   //   R_min     = S - S(1 - p_entry)          ← loss refund  (= S × p_entry)
   //   R_current = R_min + (R_max - R_min) × p_current
   const activeMtmValue = predictions.reduce((sum, p) => {
-    const market  = markets.find(m => m.id === p.market_id);
+    const market = markets.find(m => m.id === p.market_id);
     const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
     const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
-    const pEntry   = (p.odds_at_prediction || 50) / 100;
-    const S        = p.stake_amount || 0;
-    const R_max     = S + S * (1 - pEntry);
-    const R_min     = S - S * (1 - pEntry);
+    const pEntry = (p.odds_at_prediction || 50) / 100;
+    const S = p.stake_amount || 0;
+    const R_max = S + S * (1 - pEntry);
+    const R_min = S - S * (1 - pEntry);
     const R_current = R_min + (R_max - R_min) * pCurrent;
     return sum + R_current;
   }, 0);
@@ -335,13 +335,13 @@ export default function DashboardPage() {
 
     // R_current = R_min + (R_max - R_min) × p_current
     const getMtm = (p) => {
-      const market  = markets.find(m => m.id === p.market_id);
+      const market = markets.find(m => m.id === p.market_id);
       const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
       const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
-      const pEntry   = (p.odds_at_prediction || 50) / 100;
-      const S        = p.stake_amount || 0;
-      const R_max     = S + S * (1 - pEntry);
-      const R_min     = S - S * (1 - pEntry);
+      const pEntry = (p.odds_at_prediction || 50) / 100;
+      const S = p.stake_amount || 0;
+      const R_max = S + S * (1 - pEntry);
+      const R_min = S - S * (1 - pEntry);
       return R_min + (R_max - R_min) * pCurrent;
     };
 
@@ -354,16 +354,16 @@ export default function DashboardPage() {
     for (let i = 0; i < sorted.length; i++) {
       const tradesUpTo = sorted.slice(0, i + 1);
 
-      let settledPnL  = 0;
+      let settledPnL = 0;
       let stakedSoFar = 0;
-      let activeMtm   = 0;
+      let activeMtm = 0;
 
       tradesUpTo.forEach(p => {
         if (['won', 'lost', 'sold', 'refunded'].includes(p.status)) {
           settledPnL += (p.actual_return || 0) - (p.stake_amount || 0);
         } else if (p.status === 'active') {
           stakedSoFar += p.stake_amount || 0;
-          activeMtm   += getMtm(p);
+          activeMtm += getMtm(p);
         }
       });
 
@@ -388,6 +388,7 @@ export default function DashboardPage() {
   }, {});
 
   const recentActivities = allPredictions
+    .filter(pred => pred.status !== 'active')
     .map(pred => {
       const market = markets.find(m => m.id === pred.market_id);
       const outcome = market?.outcomes?.find(o => o.id === pred.outcome_id);
@@ -408,9 +409,98 @@ export default function DashboardPage() {
         date: pred.resolved_at || pred.sold_at || pred.updated_at || pred.created_at || new Date().toISOString()
       };
     })
-    .filter(activity => activeFilter === 'all' || activity.type === activeFilter)
     .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, 8);
+    .slice(0, 5);
+
+  const allActivitiesList = allPredictions
+    .map(pred => {
+      const market = markets.find(m => m.id === pred.market_id);
+      const outcome = market?.outcomes?.find(o => o.id === pred.outcome_id);
+      const isSettled = ['won', 'lost'].includes(pred.status);
+      const isSold = pred.status === 'sold';
+
+      let action = 'Bought';
+      if (isSettled) action = 'Resolved';
+      if (isSold) action = 'Sold';
+
+      return {
+        id: pred.id,
+        date: pred.resolved_at || pred.sold_at || pred.updated_at || pred.created_at || new Date().toISOString(),
+        marketTitle: market?.title || 'Unknown Market',
+        outcomeTitle: outcome?.title || 'Unknown',
+        action,
+        status: pred.status,
+        probability: pred.odds_at_prediction || 50,
+        amount: pred.stake_amount || 0,
+        returnAmount: (isSettled || isSold) ? (pred.actual_return || 0) : null
+      };
+    })
+    .sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  if (showAllActivity) {
+    return (
+      <div className="max-w-7xl mx-auto p-6 lg:p-8">
+        <div className="flex items-center gap-4 mb-6">
+          <button onClick={() => setShowAllActivity(false)} className="text-slate-400 hover:text-white transition-colors">
+            ← Back to Dashboard
+          </button>
+          <h1 className="text-2xl font-bold text-white">Activity History</h1>
+        </div>
+        <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-300 min-w-[800px]">
+            <thead className="bg-slate-800/50 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th className="px-4 py-3 font-medium">Date</th>
+                <th className="px-4 py-3 font-medium">Market</th>
+                <th className="px-4 py-3 font-medium">Action</th>
+                <th className="px-4 py-3 font-medium">Contract</th>
+                <th className="px-4 py-3 font-medium text-right">Price</th>
+                <th className="px-4 py-3 font-medium text-right">Amount</th>
+                <th className="px-4 py-3 font-medium text-right">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {allActivitiesList.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-4 py-8 text-center text-slate-500">No activity yet</td>
+                </tr>
+              ) : allActivitiesList.map(act => (
+                <tr key={act.id} className="hover:bg-slate-800/30 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    {new Date(act.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    <span className="text-slate-500 ml-1 text-xs">{new Date(act.date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </td>
+                  <td className="px-4 py-3 max-w-[200px] truncate text-white font-medium" title={act.marketTitle}>{act.marketTitle}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${act.action === 'Bought' ? 'bg-blue-500/10 text-blue-400' :
+                        act.action === 'Sold' ? 'bg-slate-500/10 text-slate-400' :
+                          'bg-purple-500/10 text-purple-400'
+                      }`}>{act.action}</span>
+                  </td>
+                  <td className="px-4 py-3">{act.outcomeTitle}</td>
+                  <td className="px-4 py-3 text-right">{Math.round(act.probability)}¢</td>
+                  <td className="px-4 py-3 text-right font-medium text-white">${act.amount.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right">
+                    {act.status === 'active' ? (
+                      <span className="text-slate-400">Active</span>
+                    ) : act.status === 'won' ? (
+                      <span className="text-green-400 font-medium">Won (+${(act.returnAmount - act.amount).toFixed(2)})</span>
+                    ) : act.status === 'lost' ? (
+                      <span className="text-red-400 font-medium">Lost (-${act.amount.toFixed(2)})</span>
+                    ) : act.status === 'sold' ? (
+                      <span className="text-slate-300 font-medium">Sold (${act.returnAmount?.toFixed(2)})</span>
+                    ) : (
+                      <span className="text-slate-500 capitalize">{act.status}</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto p-6 lg:p-8">
@@ -554,20 +644,6 @@ export default function DashboardPage() {
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-white">Recent Activity</h2>
-              <div className="flex gap-1">
-                {['all', 'trade', 'resolution'].map(filter => (
-                  <button
-                    key={filter}
-                    onClick={() => setActiveFilter(filter)}
-                    className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${activeFilter === filter
-                      ? 'bg-slate-800 text-white'
-                      : 'text-slate-400 hover:bg-slate-800/50'
-                      }`}
-                  >
-                    {filter === 'all' ? 'All' : filter === 'trade' ? 'Trades' : 'Resolutions'}
-                  </button>
-                ))}
-              </div>
             </div>
             <div className="space-y-3">
               {recentActivities.length === 0 ? (
@@ -616,7 +692,7 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-            <button className="w-full mt-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">
+            <button onClick={() => setShowAllActivity(true)} className="w-full mt-4 py-2 text-sm text-slate-400 hover:text-white transition-colors">
               View all activity →
             </button>
           </div>
@@ -670,11 +746,11 @@ export default function DashboardPage() {
                             // R_max = S + S(1-p_entry), R_min = S - S(1-p_entry)
                             // R_current = R_min + (R_max - R_min) * p_current
                             const pCurrent = currentProb / 100;
-                            const pEntry   = avgEntry / 100;
+                            const pEntry = avgEntry / 100;
                             const S = data.totalStake;
-                            const R_max     = S + S * (1 - pEntry);
-                            const R_min     = S - S * (1 - pEntry);
-                            const mtmValue  = R_min + (R_max - R_min) * pCurrent;
+                            const R_max = S + S * (1 - pEntry);
+                            const R_min = S - S * (1 - pEntry);
+                            const mtmValue = R_min + (R_max - R_min) * pCurrent;
                             const unrealizedPnl = mtmValue - S;
                             const sellKey = `${marketId}__${outcomeId}`;
                             const isSelling = sellingKey === sellKey;
@@ -715,17 +791,15 @@ export default function DashboardPage() {
                                   <div className="flex items-center gap-2">
                                     <div className="text-right">
                                       {/* Live MTM value — red if below cost, green if above */}
-                                      <span className={`font-semibold ${
-                                        mtmValue < data.totalStake ? 'text-red-400' :
-                                        mtmValue > data.totalStake ? 'text-green-400' : 'text-slate-300'
-                                      }`}>
+                                      <span className={`font-semibold ${mtmValue < data.totalStake ? 'text-red-400' :
+                                          mtmValue > data.totalStake ? 'text-green-400' : 'text-slate-300'
+                                        }`}>
                                         ${mtmValue.toFixed(2)}
                                       </span>
                                       {/* Unrealized P&L delta */}
-                                      <span className={`block text-[10px] leading-tight ${
-                                        unrealizedPnl < 0 ? 'text-red-500' :
-                                        unrealizedPnl > 0 ? 'text-green-500' : 'text-slate-500'
-                                      }`}>
+                                      <span className={`block text-[10px] leading-tight ${unrealizedPnl < 0 ? 'text-red-500' :
+                                          unrealizedPnl > 0 ? 'text-green-500' : 'text-slate-500'
+                                        }`}>
                                         {unrealizedPnl >= 0 ? '+' : ''}${unrealizedPnl.toFixed(2)}
                                       </span>
                                     </div>
@@ -738,11 +812,10 @@ export default function DashboardPage() {
                                           setSellingKey(sellKey); setSellAmount(''); setSellMsg('');
                                         }
                                       }}
-                                      className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${
-                                        isSelling
+                                      className={`px-2 py-0.5 rounded text-xs font-semibold transition-all ${isSelling
                                           ? 'bg-slate-700 text-slate-300'
                                           : 'bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30'
-                                      }`}
+                                        }`}
                                     >
                                       {isSelling ? 'Cancel' : 'Sell'}
                                     </button>
@@ -788,9 +861,8 @@ export default function DashboardPage() {
                                         </div>
                                         <div className="flex justify-between">
                                           <span className="text-slate-500">P&L:</span>
-                                          <span className={`font-medium ${
-                                            parseFloat(previewPnl) >= 0 ? 'text-green-400' : 'text-red-400'
-                                          }`}>
+                                          <span className={`font-medium ${parseFloat(previewPnl) >= 0 ? 'text-green-400' : 'text-red-400'
+                                            }`}>
                                             {parseFloat(previewPnl) >= 0 ? '+' : ''}${previewPnl}
                                           </span>
                                         </div>
