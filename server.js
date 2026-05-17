@@ -263,7 +263,26 @@ app.post('/api/markets', async (req, res) => {
 });
 
 app.get('/api/predictions', async (req, res) => {
-  const predictions = await readJson(PREDICTIONS_PATH);
+  let predictions = await readJson(PREDICTIONS_PATH);
+
+  // Retroactively self-heal historical data: fix 0 returns on rebated lost predictions
+  let needsSave = false;
+  predictions = predictions.map(p => {
+    if (p.status === 'lost' && (p.actual_return === 0 || p.actual_return == null)) {
+      needsSave = true;
+      const pEntry = (p.odds_at_prediction || 50) / 100;
+      return {
+        ...p,
+        actual_return: Number(((p.stake_amount || 0) * pEntry).toFixed(2))
+      };
+    }
+    return p;
+  });
+
+  if (needsSave) {
+    await writeJson(PREDICTIONS_PATH, predictions);
+  }
+
   const { market_id } = req.query;
   if (market_id) {
     return res.json(predictions.filter((p) => p.market_id === market_id));
