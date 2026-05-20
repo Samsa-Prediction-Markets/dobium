@@ -1,0 +1,13 @@
+backend/engine/
+backend/engine/target/
+backend/engine/Cargo.lock
+.git
+.gitignore
+node_modules
+.env.example
+README.md
+docs/
+tests/
+archive/
+.trae/
+*.zip

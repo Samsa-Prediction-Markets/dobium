@@ -1,9 +1,9 @@
 'use strict';
 
 /**
- * SAMSA — Rust Engine Bridge
+ * Dobium — Rust Engine Bridge
  *
- * Calls the compiled Rust binary (engine/target/release/samsa-engine)
+ * Calls the compiled Rust binary (engine/target/release/dobium-engine)
  * via child_process, passing JSON on stdin and reading JSON from stdout.
  *
  * If the binary is not found (e.g. not yet compiled), falls back to the
@@ -15,6 +15,8 @@
  *   resolve(trades, winningOutcomeId)  → ResolutionResult
  *   invest(b, qYes, qNo, side, stake)  → { invest_result, new_state }
  *   probability(b, qYes, qNo)          → { probability, probability_percent }
+ *   Don't build the Rust engine at all
+ *   Let the Node.js implementation handle LMSR calculations
  */
 
 const { execFile } = require('child_process');
@@ -28,8 +30,8 @@ const BINARY_UNIX = path.join(__dirname, '..', 'engine', 'target', 'release', 'd
 
 function getBinaryPath() {
   const fs = require('fs');
-  if (fs.existsSync(BINARY_WIN))  return BINARY_WIN;
-  if (fs.existsSync(BINARY_GNU))  return BINARY_GNU;
+  if (fs.existsSync(BINARY_WIN)) return BINARY_WIN;
+  if (fs.existsSync(BINARY_GNU)) return BINARY_GNU;
   if (fs.existsSync(BINARY_UNIX)) return BINARY_UNIX;
   return null;
 }
