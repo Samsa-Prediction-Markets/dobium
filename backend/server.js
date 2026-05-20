@@ -2033,26 +2033,34 @@ async function initDatabase() {
   }
 }
 
-const server = app.listen(PORT, () => {
-  console.log(`✅ Dobium API listening on http://localhost:${PORT}`);
-
-  // Register the daily 12 PM CST digest email job
-  registerDailyDigestJob(
-    { User, Transaction, Prediction, Outcome, Market },
-    sendEmail
-  );
-});
-
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`❌ Port ${PORT} is already in use.`);
-    console.error(`   In PowerShell, run:`);
-    console.error(`   netstat -ano | findstr :${PORT}`);
-    console.error(`   Then kill by PID:  taskkill /PID 12345 /F  (replace 12345 with the actual PID)`);
-    process.exit(1);
-  } else {
-    throw err;
-  }
-});
-
+// Always initialize the database (needed for both Railway and Vercel serverless)
 initDatabase();
+
+// Only bind to a TCP port when run directly (Railway / local dev).
+// When imported as a module by Vercel's api/index.js, skip listen() entirely.
+if (require.main === module) {
+  const server = app.listen(PORT, () => {
+    console.log(`✅ Dobium API listening on http://localhost:${PORT}`);
+
+    // Register the daily 12 PM CST digest email job
+    registerDailyDigestJob(
+      { User, Transaction, Prediction, Outcome, Market },
+      sendEmail
+    );
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use.`);
+      console.error(`   In PowerShell, run:`);
+      console.error(`   netstat -ano | findstr :${PORT}`);
+      console.error(`   Then kill by PID:  taskkill /PID 12345 /F  (replace 12345 with the actual PID)`);
+      process.exit(1);
+    } else {
+      throw err;
+    }
+  });
+}
+
+// Export the Express app for Vercel serverless (api/index.js)
+module.exports = app;
