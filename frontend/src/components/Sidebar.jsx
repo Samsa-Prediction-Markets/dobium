@@ -42,11 +42,11 @@ export default function Sidebar() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Fetch unread notifications count on load, then listen for real-time updates
+  // Fetch unread notifications count on load, then poll every 30s for updates.
+  // SSE is not used because Vercel serverless functions can't hold persistent connections.
   useEffect(() => {
     if (!session?.user?.id) return;
 
-    // Initial fetch for count
     const fetchUnread = async () => {
       try {
         const res = await fetch(`/api/users/${session.user.id}/notifications`);
@@ -54,31 +54,14 @@ export default function Sidebar() {
           const data = await res.json();
           setUnreadCount(data.filter(n => !n.is_read).length);
         }
-      } catch (err) {
-        console.error('Failed to fetch initial notification count', err);
+      } catch {
+        // Silently ignore — not critical
       }
     };
+
     fetchUnread();
-
-    // Setup SSE connection for real-time updates
-    const eventSource = new EventSource('/api/notifications/stream');
-
-    eventSource.onmessage = (event) => {
-      const notification = JSON.parse(event.data);
-      // Check if the notification is for the current user and is unread
-      if (notification.user_id === session.user.id && !notification.is_read) {
-        setUnreadCount(prevCount => prevCount + 1);
-      }
-    };
-
-    eventSource.onerror = (err) => {
-      console.error('EventSource failed:', err);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    }
+    const interval = setInterval(fetchUnread, 30_000);
+    return () => clearInterval(interval);
   }, [session?.user?.id]);
 
   // Update unread count immediately on panel close
