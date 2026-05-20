@@ -86,6 +86,13 @@ function broadcastNotification(notification) {
 }
 
 app.get('/api/notifications/stream', (req, res) => {
+  // Vercel serverless functions cannot hold persistent SSE connections.
+  // Return 503 immediately so the frontend knows to fall back to polling.
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(503).json({ error: 'SSE not available in serverless mode. Use polling.' });
+  }
+
+  // Railway / local dev — full SSE support
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -2030,10 +2037,8 @@ async function initDatabase() {
     console.log('✅ Database connection established');
 
     if (process.env.NODE_ENV !== 'production') {
-      // Only run schema sync and seeding in development / Railway.
-      // In production (Vercel serverless) the schema already exists and
-      // sequelize.sync({ alter: true }) adds 5-8s to every cold start —
-      // enough to blow past Vercel's 10s function timeout.
+      // Full schema sync + seeding in development / Railway.
+      // alter:true updates existing columns — safe for dev, too slow for serverless.
       await sequelize.sync({ alter: true });
       console.log('✅ Database synchronized (all tables created/updated)');
 
@@ -2043,7 +2048,11 @@ async function initDatabase() {
       await seedMarketsFromJson();
       await applyKnownMarketResolutions();
     } else {
-      console.log('⚡ Production mode — skipping sync/seed (schema already exists)');
+      // Production (Vercel): run a lightweight sync that only CREATEs missing tables.
+      // This is fast (~200ms) and ensures tables like 'notifications' exist
+      // without any ALTER TABLE statements that would timeout the cold start.
+      await sequelize.sync({ alter: false, force: false });
+      console.log('⚡ Production sync complete (missing tables created, existing tables untouched)');
     }
   } catch (error) {
     console.error('❌ Database initialization failed:', error.message);
