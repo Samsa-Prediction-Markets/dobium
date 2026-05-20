@@ -1,11 +1,25 @@
 /**
  * Vercel Serverless Entry Point
- *
- * Imports the real Express app from backend/server.js and exports it for Vercel.
- * backend/server.js guards app.listen() behind `require.main === module`, so
- * it won't try to bind a port here — Vercel handles that automatically.
+ * Wraps backend/server.js with error surfacing so crashes return JSON, not HTML 500.
  */
 
-const app = require('../backend/server');
+let app;
+let initError = null;
 
-module.exports = app;
+try {
+  app = require('../backend/server');
+} catch (err) {
+  initError = err;
+  console.error('[api/index.js] Failed to load backend/server.js:', err.message, err.stack);
+}
+
+module.exports = (req, res) => {
+  if (initError) {
+    return res.status(500).json({
+      error: 'Server initialization failed',
+      message: initError.message,
+      type: initError.constructor.name,
+    });
+  }
+  return app(req, res);
+};
