@@ -1,4 +1,5 @@
 require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
@@ -73,6 +74,8 @@ const ALLOWED_ORIGINS = [
   'https://www.dobium.com',
   /\.vercel\.app$/,
   /\.onrender\.com$/,
+  /\.railway\.app$/,
+  /\.netlify\.app$/,
   'http://localhost:5173',
   'http://localhost:3000',
 ];
@@ -1881,7 +1884,7 @@ Right now, you can trade on questions like:
 
 These markets close soon — prices will move as more data comes in. The earlier you trade, the more edge you have.
 
-Start Trading: https://dobium.up.railway.app/explore`
+Start Trading: ${platformUrl}/explore`
   }
 };
 
@@ -1947,7 +1950,7 @@ app.post('/api/admin/send-broadcast', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden — admin access required' });
     }
 
-    const platformUrl = process.env.PLATFORM_URL || 'https://dobium.up.railway.app';
+    const platformUrl = process.env.PLATFORM_URL || 'https://dobium.com';
 
     // ── Resolve campaign ────────────────────────────────────────────────────
     let campaign;

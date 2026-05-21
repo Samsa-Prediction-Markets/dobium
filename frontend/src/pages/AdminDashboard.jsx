@@ -89,15 +89,17 @@ export default function AdminDashboard() {
   const [customCtaUrl, setCustomCtaUrl] = useState('');
 
   const adminAccount = 'donotreply.dobium@gmail.com';
+  const rawApiUrl = import.meta.env.VITE_API_URL || '';
+  const API_URL = rawApiUrl.endsWith('/') ? rawApiUrl.slice(0, -1) : rawApiUrl;
 
   const fetchMarkets = () =>
-    fetch('/api/markets')
+    fetch(`${API_URL}/api/markets`)
       .then(res => res.json())
       .then(data => setActiveMarkets(Array.isArray(data) ? data.filter(m => m.status === 'active') : []))
       .catch(console.error);
 
   const fetchPredictions = () =>
-    fetch('/api/predictions')
+    fetch(`${API_URL}/api/predictions`)
       .then(res => res.json())
       .then(data => setAllPredictions(Array.isArray(data) ? data : []))
       .catch(console.error);
@@ -106,13 +108,13 @@ export default function AdminDashboard() {
     const userEmail = session?.user?.email;
     if (userEmail === adminAccount) {
       setIsAdmin(true);
-      fetch('/api/health')
+      fetch(`${API_URL}/api/health`)
         .then(res => res.json())
         .then(data => setHealth(data))
         .catch(() => setHealth({ ok: false, error: 'Cannot connect to API' }));
       fetchMarkets();
       fetchPredictions();
-      fetch(`/api/admin/users?adminEmail=${encodeURIComponent(adminAccount)}`)
+      fetch(`${API_URL}/api/admin/users?adminEmail=${encodeURIComponent(adminAccount)}`)
         .then(res => res.json())
         .then(data => setUsers(Array.isArray(data) ? data : []))
         .catch(console.error);
@@ -126,7 +128,7 @@ export default function AdminDashboard() {
     setLoading(true);
     setMessage('');
     try {
-      const response = await fetch('/api/admin/send-email', {
+      const response = await fetch(`${API_URL}/api/admin/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +174,7 @@ export default function AdminDashboard() {
         dryRun: true,
         ...(customFields || {})
       };
-      const res = await fetch('/api/admin/send-broadcast', {
+      const res = await fetch(`${API_URL}/api/admin/send-broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -203,7 +205,7 @@ export default function AdminDashboard() {
         dryRun: false,
         ...(broadcastPreview._customFields || {})
       };
-      const res = await fetch('/api/admin/send-broadcast', {
+      const res = await fetch(`${API_URL}/api/admin/send-broadcast`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -238,7 +240,7 @@ export default function AdminDashboard() {
     setScanLoading(true);
     setRiskMessage('');
     try {
-      const res = await fetch('/api/users/negative-buying-power');
+      const res = await fetch(`${API_URL}/api/users/negative-buying-power`);
       const data = await res.json();
       if (res.ok) {
         setNegativeUsers(data.users || []);
@@ -262,7 +264,7 @@ export default function AdminDashboard() {
     setFixLoading(true);
     setRiskMessage('');
     try {
-      const res = await fetch('/api/users/fix-negative-buying-power', { method: 'POST' });
+      const res = await fetch(`${API_URL}/api/users/fix-negative-buying-power`, { method: 'POST' });
       const data = await res.json();
       if (res.ok) {
         setRiskMessage(`Successfully repaired ${data.repaired_users} user(s). Cancelled ${data.removed_predictions} predictions.`);
@@ -324,7 +326,7 @@ export default function AdminDashboard() {
         probability: parseFloat(o.probability) || 0
       }));
 
-      const res = await fetch('/api/markets', {
+      const res = await fetch(`${API_URL}/api/markets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -377,7 +379,7 @@ export default function AdminDashboard() {
         winning_outcome_ids = [resolveSelections.winner];
       }
 
-      const res = await fetch(`/api/markets/${resolvingMarket.id}/resolve`, {
+      const res = await fetch(`${API_URL}/api/markets/${resolvingMarket.id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ winning_outcome_ids })
@@ -404,7 +406,7 @@ export default function AdminDashboard() {
   const handleStatusChange = async (market, newStatus) => {
     setStatusLoading(market.id);
     try {
-      const res = await fetch(`/api/markets/${market.id}`, {
+      const res = await fetch(`${API_URL}/api/markets/${market.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
@@ -454,7 +456,7 @@ export default function AdminDashboard() {
     setResolveLoading(true);
     setResolveMessage('');
     try {
-      const res = await fetch(`/api/markets/${confirmModal.market.id}/resolve`, {
+      const res = await fetch(`${API_URL}/api/markets/${confirmModal.market.id}/resolve`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ winning_outcome_ids: confirmModal.winnerIds })
@@ -491,7 +493,7 @@ export default function AdminDashboard() {
     setEditMarketLoading(true);
     setEditMarketMessage('');
     try {
-      const res = await fetch(`/api/markets/${editingMarket.id}`, {
+      const res = await fetch(`${API_URL}/api/markets/${editingMarket.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1151,8 +1153,8 @@ export default function AdminDashboard() {
                 key={tab.id}
                 onClick={() => { setBroadcastTab(tab.id); setBroadcastPreview(null); setBroadcastMessage(''); }}
                 className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors border-b-2 ${broadcastTab === tab.id
-                    ? 'text-amber-400 border-amber-400 bg-slate-900/40'
-                    : 'text-slate-400 border-transparent hover:text-slate-200'
+                  ? 'text-amber-400 border-amber-400 bg-slate-900/40'
+                  : 'text-slate-400 border-transparent hover:text-slate-200'
                   }`}
               >{tab.label}</button>
             ))}
@@ -1295,8 +1297,8 @@ export default function AdminDashboard() {
           {/* Status message */}
           {broadcastMessage && (
             <div className={`mt-5 px-4 py-3 rounded-lg text-sm border ${broadcastMessage.startsWith('✅')
-                ? 'bg-green-500/10 text-green-400 border-green-500/30'
-                : 'bg-red-500/10 text-red-400 border-red-500/30'
+              ? 'bg-green-500/10 text-green-400 border-green-500/30'
+              : 'bg-red-500/10 text-red-400 border-red-500/30'
               }`}>
               {broadcastMessage}
             </div>

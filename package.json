@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "start": "npm run backend:start",
-    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "dev": "concurrently \"npm run backend:dev\" \"npx wait-on http://localhost:3001/api/health && npm run frontend:dev\"",
     "build": "npm install --prefix frontend && npm run frontend:build",
     "build:vercel": "npm install --prefix frontend && npm run frontend:build && npm install",
     "start:prod": "npm run frontend:build && npm run backend:start",
