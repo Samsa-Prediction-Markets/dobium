@@ -3,7 +3,7 @@
 /**
  * SAMSA — Payouts (JS Canonical Fallback)
  *
- * This is the JavaScript implementation of the fee-free rebated-risk model.
+ * This is the JavaScript implementation of the Dobium S(1−p) payout model.
  * It is used as a fallback when the Rust engine binary is not compiled,
  * and is kept in sync with engine/src/payout.rs.
  *
@@ -11,15 +11,20 @@
  * This file: fallback for Node.js when Rust binary is unavailable.
  *
  * ─────────────────────────────────────────────────────────────────────────────
- * Model (f = 0.0 — fees disabled until real money):
+ * Dobium Payout Bounds (S(1−p) model, f = 0.0 until real money):
  *
  *   S = user stake
  *   p = market probability at time of trade (locked in at entry)
  *
- *   Win profit:      S × (1 − p)         [= S×(1−p)×(1−0) with f=0]
- *   Win total:       S + S × (1 − p)  =  S × (2 − p)
- *   Lose refund:     S × p
- *   Platform rev:    0.0                  [S × f × (1−p) with f=0]
+ *   R_max (win)  = S + S×(1−p)  = S×(2−p)   ← win upper bound
+ *   R_min (loss) = S×p                        ← loss lower bound
+ *   R_current    = R_min + (R_max − R_min)×p_current  ← midpoint MTM
+ *                = S×(p + 2×p_current×(1−p))           ← simplified form
+ *
+ *   Win profit:   S×(1−p)  (= R_max − S)
+ *   Win total:    S×(2−p)  (= R_max)
+ *   Lose refund:  S×p      (= R_min)
+ *   Platform rev: 0.0        [S×f×(1−p) with f=0]
  *
  * To re-enable fees: change PLATFORM_FEE to 0.01.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -44,23 +49,25 @@ function settleTrade(stake, probability, didWin, fee = PLATFORM_FEE) {
   const f = fee;
 
   if (didWin) {
+    // R_max = S×(2−p) = S + S×(1−p)
     const profit = S * (1 - p) * (1 - f);
-    const payout = round(S + profit);
+    const payout = round(S + profit);  // = R_max (with fee)
     const platformRevenue = round(S * f * (1 - p));
     return {
       payout,
       platform_revenue: platformRevenue,
-      formula: `Win: S + S×(1−p)×(1−f) = ${S} + ${S}×${(1 - p).toFixed(4)}×${(1 - f).toFixed(4)} = ${payout.toFixed(2)}`,
+      formula: `Win R_max: S×(2−p)×(1−f) = ${S}×${(2 - p).toFixed(4)}×${(1 - f).toFixed(4)} = ${payout.toFixed(2)}`,
       won: true,
       stake: S,
       probability: p,
     };
   } else {
+    // R_min = S×p (loss lower bound)
     const refund = round(S * p);
     return {
       payout: refund,
       platform_revenue: 0,
-      formula: `Lose refund: S×p = ${S}×${p.toFixed(4)} = ${refund.toFixed(2)}`,
+      formula: `Loss R_min: S×p = ${S}×${p.toFixed(4)} = ${refund.toFixed(2)}`,
       won: false,
       stake: S,
       probability: p,

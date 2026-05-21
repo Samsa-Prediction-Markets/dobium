@@ -406,18 +406,19 @@ export default function DashboardPage() {
   const settledPredictions = allPredictions.filter(p => p.status === 'won' || p.status === 'lost');
   const availableBalance = buyingPower;
 
-  // Mark-to-market valuation using user-specified formula:
-  //   R_max     = S + S(1 - p_entry)          ← win payout
-  //   R_min     = S - S(1 - p_entry)          ← loss refund  (= S × p_entry)
-  //   R_current = R_min + (R_max - R_min) × p_current
+  // Mark-to-market (MTM) valuation for all active positions:
+  //   R_max     = S + S×(1−p_entry)   = S×(2−p_entry)  ← win upper bound
+  //   R_min     = S×p_entry                             ← loss lower bound
+  //   R_current = R_min + (R_max − R_min)×p_current     ← midpoint valuation
+  //             = S×(p_entry + 2×p_current×(1−p_entry)) ← simplified
   const activeMtmValue = predictions.reduce((sum, p) => {
     const market = markets.find(m => m.id === p.market_id);
     const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
     const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
     const pEntry = (p.odds_at_prediction || 50) / 100;
     const S = p.stake_amount || 0;
-    const R_max = S + S * (1 - pEntry);
-    const R_min = S - S * (1 - pEntry);
+    const R_max = S * (2 - pEntry);      // = S + S×(1−pEntry)
+    const R_min = S * pEntry;             // = S×pEntry
     const R_current = R_min + (R_max - R_min) * pCurrent;
     return sum + R_current;
   }, 0);
@@ -449,14 +450,15 @@ export default function DashboardPage() {
     // Guard: if no predictions have timestamps, bail out
     if (!sorted.length) return [];
 
-    // R = S × (p_entry + 2×p_current×(1 - p_entry))
-    // This correctly implements S(1-p) payout model MTM valuation
+    // Midpoint MTM per active position:
+    //   R_current = S×(p_entry + 2×p_current×(1−p_entry))
     const getMtm = (p) => {
       const market = markets.find(m => m.id === p.market_id);
       const outcome = market?.outcomes?.find(o => o.id === p.outcome_id);
       const pCurrent = (outcome?.probability ?? p.odds_at_prediction ?? 50) / 100;
       const pEntry = (p.odds_at_prediction || 50) / 100;
       const S = p.stake_amount || 0;
+      // Equivalent to R_min + (R_max − R_min)×p_current
       return S * (pEntry + 2 * pCurrent * (1 - pEntry));
     };
 
@@ -477,7 +479,13 @@ export default function DashboardPage() {
         if (['won', 'lost', 'sold', 'refunded'].includes(p.status)) {
           let actualReturn = p.actual_return || 0;
           if (p.status === 'lost' && actualReturn === 0) {
+            // R_min = S×p_entry (loss lower bound)
             actualReturn = (p.stake_amount || 0) * ((p.odds_at_prediction || 50) / 100);
+          }
+          if (p.status === 'won' && actualReturn === 0) {
+            // R_max = S×(2−p_entry) (win upper bound)
+            const pEntry = (p.odds_at_prediction || 50) / 100;
+            actualReturn = (p.stake_amount || 0) * (2 - pEntry);
           }
           settledPnL += actualReturn - (p.stake_amount || 0);
         } else if (p.status === 'active') {
@@ -514,9 +522,17 @@ export default function DashboardPage() {
       const isSettled = ['won', 'lost'].includes(pred.status);
       const isSold = pred.status === 'sold';
 
+      const S = pred.stake_amount || 0;
+      const entryProbPct = pred.odds_at_prediction || 50;
+
       let actualReturn = pred.actual_return || 0;
       if (pred.status === 'lost' && actualReturn === 0) {
-        actualReturn = (pred.stake_amount || 0) * ((pred.odds_at_prediction || 50) / 100);
+        // R_min = S×p_entry (loss lower bound)
+        actualReturn = S * (entryProbPct / 100);
+      }
+      if (pred.status === 'won' && actualReturn === 0) {
+        // R_max = S×(2−p_entry) (win upper bound)
+        actualReturn = S * (2 - entryProbPct / 100);
       }
 
       return {
@@ -526,10 +542,10 @@ export default function DashboardPage() {
         marketId: pred.market_id,
         marketTitle: market?.title || 'Unknown Market',
         outcomeTitle: outcome?.title || 'Unknown',
-        probability: pred.odds_at_prediction || 50,
-        amount: isSettled || isSold ? actualReturn : (pred.stake_amount || 0),
-        stakeAmount: pred.stake_amount || 0,
-        pnl: isSettled || isSold ? actualReturn - (pred.stake_amount || 0) : null,
+        probability: entryProbPct,
+        amount: isSettled || isSold ? actualReturn : S,
+        stakeAmount: S,
+        pnl: isSettled || isSold ? actualReturn - S : null,
         status: pred.status,
         date: pred.resolved_at || pred.sold_at || pred.updated_at || pred.created_at || new Date().toISOString()
       };

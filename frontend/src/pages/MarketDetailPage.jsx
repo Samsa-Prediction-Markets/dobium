@@ -255,17 +255,19 @@ export default function MarketDetailPage() {
     }
   };
 
-  // Calculate payout using S(1-p) formula
-  const calculatePayout = (stake, probability) => {
+  // Payout bounds using the Dobium S(1−p) model:
+  //   R_max (win)  = S + S×(1−p) = S×(2−p)   ← upper bound
+  //   R_min (loss) = S×p              ← lower bound
+  const calculatePayoutBounds = (stake, probability) => {
     const p = probability / 100;
-    const winProfit = stake * (1 - p); // S(1-p)
-    const winReturn = stake + winProfit; // Total return
-    const loseRefund = stake * p; // Refund on loss
-    return { winProfit, winReturn, loseRefund };
+    const R_max = stake * (2 - p);    // win upper bound
+    const R_min = stake * p;           // loss lower bound
+    const winProfit = R_max - stake;   // = S×(1−p)
+    return { winProfit, winReturn: R_max, loseRefund: R_min };
   };
 
   const payout = selectedOutcome && stake
-    ? calculatePayout(parseFloat(stake), selectedOutcome.probability || 50)
+    ? calculatePayoutBounds(parseFloat(stake), selectedOutcome.probability || 50)
     : null;
 
   return (
@@ -633,12 +635,15 @@ export default function MarketDetailPage() {
 
                   {payout && (
                     <div className="space-y-3">
-                      {/* Payout Formula Explanation */}
+                      {/* Payout Bounds Explanation */}
                       <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-3">
-                        <p className="text-slate-400 text-xs mb-2">Return Formula: S × (1 - p)</p>
-                        <div className="text-xs text-slate-500 space-y-1">
-                          <p>S = Position size (${parseFloat(stake).toFixed(2)})</p>
-                          <p>p = Market probability ({((selectedOutcome.probability || 50) / 100).toFixed(2)})</p>
+                        <p className="text-slate-400 text-xs mb-2 font-semibold">Payout Bounds <span className="text-slate-600 font-normal">(S×(1−p) model)</span></p>
+                        <div className="text-xs text-slate-500 space-y-0.5">
+                          <p>S = Stake (${parseFloat(stake).toFixed(2)})</p>
+                          <p>p = Entry probability ({((selectedOutcome.probability || 50) / 100).toFixed(2)})</p>
+                          <p className="mt-1 text-slate-600 font-mono text-[10px]">
+                            R<sub>max</sub> = S×(2−p) &nbsp;|  R<sub>min</sub> = S×p
+                          </p>
                         </div>
                       </div>
 
